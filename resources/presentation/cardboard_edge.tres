@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PaperMaterial" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/presentation/paper_material.gd" id="1_mat"]
+
+[resource]
+script = ExtResource("1_mat")
+albedo = Color(0.62, 0.41, 0.24, 1)
+roughness = 0.88
+uv_scale = Vector3(3, 3, 3)

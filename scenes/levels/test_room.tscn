@@ -7,10 +7,12 @@
 
 [sub_resource type="Environment" id="Environment_room"]
 background_mode = 1
-background_color = Color(0.62, 0.7, 0.78, 1)
+background_color = Color(0.73, 0.78, 0.82, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.7, 0.66, 0.58, 1)
-ambient_light_energy = 0.85
+ambient_light_color = Color(0.86, 0.78, 0.66, 1)
+ambient_light_energy = 0.55
+tonemap_mode = 2
+tonemap_exposure = 1.05
 
 [node name="TestRoom" type="Node3D"]
 script = ExtResource("1_room")
@@ -19,8 +21,17 @@ script = ExtResource("1_room")
 environment = SubResource("Environment_room")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-50, 35, 0)
+rotation_degrees = Vector3(-48, 32, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 1.2
 shadow_enabled = true
+shadow_blur = 1.5
+
+[node name="Fill" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-18, -150, 0)
+light_color = Color(0.78, 0.86, 0.95, 1)
+light_energy = 0.28
+shadow_enabled = false
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 5)

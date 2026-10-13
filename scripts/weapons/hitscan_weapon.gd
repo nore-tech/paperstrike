@@ -4,11 +4,11 @@ extends Node3D
 ## Fires a camera-aligned hitscan shot. Does not decide how a target reacts beyond calling take_damage.
 
 signal fired
-signal hit_registered(collider: Object, damage: int, point: Vector3)
+signal hit_registered(collider: Object, damage: int, point: Vector3, normal: Vector3)
 
 @export var stats: WeaponStats
 
-@onready var _muzzle_flash: MeshInstance3D = $MuzzleFlash
+@onready var _muzzle_flash: Node3D = $MuzzleFlash
 @onready var _muzzle_light: OmniLight3D = $MuzzleLight
 
 var _cooldown := 0.0
@@ -35,7 +35,7 @@ func try_fire(origin: Vector3, direction: Vector3, exclude: Array[RID]) -> void:
 		return
 	var collider: Object = result.collider
 	var damage := stats.damage
-	hit_registered.emit(collider, damage, result.position)
+	hit_registered.emit(collider, damage, result.position, result.normal)
 	if collider.has_method("take_damage"):
 		collider.take_damage(damage)
 
