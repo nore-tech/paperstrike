@@ -38,3 +38,4 @@ view_color = Color(0.32, 0.22, 0.16, 1)
 fire_sound = ExtResource("2_fire")
 reload_sound = ExtResource("3_reload")
 empty_sound = ExtResource("4_empty")
+fire_volume_db = -6.0

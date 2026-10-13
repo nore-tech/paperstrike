@@ -38,6 +38,7 @@ var _sliding := false
 var _slide_dir := Vector3.FORWARD
 var _slide_time := 0.0
 var _slide_cooldown := 0.0
+var _suppress_crouch := false
 var _jump_lock := 0.0
 var _bob_time := 0.0
 var _bob := 0.0
@@ -106,14 +107,19 @@ func _physics_process(delta: float) -> void:
 	var crouch_held := Input.is_action_pressed("crouch")
 	var sprint_held := Input.is_action_pressed("sprint") and not ads_blocking and not _prone
 	_slide_cooldown = maxf(0.0, _slide_cooldown - delta)
+	if not crouch_held:
+		_suppress_crouch = false
 	if Input.is_action_just_pressed("prone"):
 		_toggle_prone()
 	if not _sliding and not _prone and Input.is_action_just_pressed("crouch"):
 		_try_begin_slide(sprint_held, ads_blocking)
+	var jumped_from_slide := false
+	if _sliding:
+		jumped_from_slide = _interrupt_slide(crouch_held, sprint_held)
 	if _sliding:
 		_apply_slide(delta, wish)
-	else:
-		var low := crouch_held or _stance > 0.55
+	elif not jumped_from_slide:
+		var low := (crouch_held and not _suppress_crouch) or _stance > 0.55
 		_apply_horizontal(delta, wish, _target_speed(wish, sprint_held, low))
 	_apply_vertical(delta)
 	_update_stance(delta, crouch_held)
@@ -124,7 +130,7 @@ func _physics_process(delta: float) -> void:
 	if is_on_floor():
 		if was_air and fall_speed >= profile.land_dip_min_speed:
 			_land_dip = profile.land_dip
-	_refresh_state(wish, sprint_held and not crouch_held and not _prone)
+	_refresh_state(wish, sprint_held and not _prone and (not crouch_held or _suppress_crouch))
 
 func _process(delta: float) -> void:
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
@@ -137,6 +143,7 @@ func _process(delta: float) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	var sway_scale := 0.25 if _prone_blend > 0.55 and Vector2(velocity.x, velocity.z).length() < 0.4 else 1.0
 	_weapon.set_handling(sway_scale)
+	_weapon.set_locomotion(move_state == MoveState.SPRINTING)
 	_weapon.update(delta, trigger_down, trigger_just_pressed, ads_held, _camera.global_position, -_camera.global_transform.basis.z, [get_rid()], velocity, is_on_floor(), _look_delta)
 	_look_delta = Vector2.ZERO
 	_apply_recoil()
@@ -234,14 +241,44 @@ func _try_begin_slide(sprint_held: bool, ads_blocking: bool) -> void:
 	if move_state != MoveState.SPRINTING and not sprint_held:
 		return
 	var horiz := Vector3(velocity.x, 0.0, velocity.z)
-	if horiz.length() < profile.slide_min_speed:
+	var speed := horiz.length()
+	if speed < profile.slide_min_speed:
 		return
-	var boosted := minf(horiz.length() * profile.slide_entry_boost, profile.sprint_speed * 1.15)
+	var cap := profile.sprint_speed * 1.15
+	var boosted := speed
+	if speed <= profile.sprint_speed * 1.02:
+		boosted = minf(speed * profile.slide_entry_boost, cap)
+	else:
+		boosted = minf(speed, cap)
 	_sliding = true
 	_slide_time = 0.0
 	_slide_dir = horiz.normalized()
 	velocity.x = _slide_dir.x * boosted
 	velocity.z = _slide_dir.z * boosted
+
+func _interrupt_slide(crouch_held: bool, sprint_held: bool) -> bool:
+	if Input.is_action_just_pressed("jump") and is_on_floor() and _jump_lock <= 0.0:
+		_end_slide()
+		velocity.y = sqrt(2.0 * _gravity * profile.jump_height)
+		_jump_lock = profile.jump_lock_seconds
+		return true
+	if Input.is_action_just_pressed("prone") and _prone_clear():
+		_end_slide()
+		_prone = true
+		return false
+	if Input.is_action_just_pressed("sprint") and sprint_held and _stand_clear():
+		_end_slide()
+		if crouch_held:
+			_suppress_crouch = true
+		return false
+	if not crouch_held:
+		_end_slide()
+	return false
+
+func _end_slide() -> void:
+	_sliding = false
+	_slide_time = 0.0
+	_slide_cooldown = profile.slide_cooldown
 
 func _apply_slide(delta: float, wish: Vector3) -> void:
 	_slide_time += delta
@@ -267,12 +304,12 @@ func _toggle_prone() -> void:
 		_prone = true
 
 func _update_stance(delta: float, crouch_held: bool) -> void:
-	if _prone and crouch_held and _crouch_clear():
+	if _prone and Input.is_action_just_pressed("crouch") and _crouch_clear():
 		_prone = false
 	if not _prone and _prone_blend > 0.35 and not _stand_clear() and not _crouch_clear():
 		_prone = true
 	var rising_blocked := _stance > 0.02 and not _prone and not _stand_clear()
-	var low := crouch_held or _sliding or _prone or rising_blocked
+	var low := (crouch_held and not _suppress_crouch) or _sliding or _prone or rising_blocked
 	var blend := 1.0 - exp(-profile.stance_speed * delta)
 	_stance = lerpf(_stance, 1.0 if low else 0.0, blend)
 	_prone_blend = lerpf(_prone_blend, 1.0 if _prone else 0.0, blend)

@@ -10,7 +10,9 @@ The current slice is a firing range: walk, look, jump, sprint, pick up guns, and
 2. Open this folder as a project (`project.godot`).
 3. Press Play. The main scene is `scenes/levels/test_room.tscn`.
 
-WASD moves, Shift sprints, Space jumps, and the mouse looks. Hold Left Ctrl to crouch. Press Left Ctrl while sprinting to slide. Z toggles prone. Left click fires. Right click aims down the iron sights. R reloads. E uses whatever you are looking at. Esc releases the mouse. Aiming, crouching, or going prone stops a sprint.
+WASD moves, Shift sprints, Space jumps, and the mouse looks. Hold Left Ctrl to crouch. Hold Left Ctrl while sprinting to slide, and keep holding it; release Ctrl to stand up out of the slide. Space during a slide jumps and keeps your speed. Press Shift again during a slide to cancel into a sprint when there is room to stand. Z goes prone, including during a slide. Left click fires. Right click aims down the iron sights. R reloads. E uses whatever you are looking at. Esc releases the mouse. Aiming, crouching, or going prone stops a sprint.
+
+The assault rifle on the left table is the finished cardboard gun. Pick it up to see the layered receiver, tube barrel, and magazine. The pistol and shotgun are still the earlier paper meshes.
 
 You start with the pistol. The assault rifle and shotgun are on the table to the left. Look at one until it says `[E] Pick up Assault Rifle` (or Pistol, or Shotgun) and press E. Keys 1, 2, and 3 switch among guns you already have. The crate on the right refills the gun you are holding.
 

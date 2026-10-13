@@ -37,6 +37,12 @@ var _visual_pitch := 0.0
 var _visual_yaw := 0.0
 var _yaw_sign := 1.0
 var _handling_scale := 1.0
+var _wants_sprint := false
+var _sprint_blend := 0.0
+var _equip := 1.0
+var _idle_time := 0.0
+var _mag: Node3D
+var _mag_rest := Vector3.ZERO
 var _rear_local := Vector3.ZERO
 var _front_local := Vector3.ZERO
 var _muzzle_local := Vector3(0, 0, -0.4)
@@ -62,11 +68,16 @@ func equip(next_stats: WeaponStats) -> void:
 	_visual_pitch = 0.0
 	_visual_yaw = 0.0
 	_empty_latched = false
+	_equip = 0.0
+	_sprint_blend = 0.0
 	_rebuild_view()
 	ammo_changed.emit(magazine, reserve)
 
 func set_handling(scale: float) -> void:
 	_handling_scale = scale
+
+func set_locomotion(sprinting: bool) -> void:
+	_wants_sprint = sprinting
 
 func visual_pitch() -> float:
 	return _visual_pitch
@@ -102,7 +113,7 @@ func start_reload() -> void:
 		return
 	_reloading = true
 	_reload_left = stats.reload_seconds
-	_play(stats.reload_sound)
+	_play(stats.reload_sound, -8.0)
 	ammo_changed.emit(magazine, reserve)
 
 func update(delta: float, trigger_down: bool, trigger_just_pressed: bool, ads_held: bool, origin: Vector3, direction: Vector3, exclude: Array[RID], velocity: Vector3, on_floor: bool, look_delta: Vector2) -> void:
@@ -124,7 +135,7 @@ func update(delta: float, trigger_down: bool, trigger_just_pressed: bool, ads_he
 	if magazine <= 0:
 		if not _empty_latched:
 			_empty_latched = true
-			_play(stats.empty_sound)
+			_play(stats.empty_sound, -10.0)
 			ammo_changed.emit(magazine, reserve)
 		return
 	_fire(origin, direction, exclude)
@@ -137,7 +148,7 @@ func _fire(origin: Vector3, direction: Vector3, exclude: Array[RID]) -> void:
 	_cooldown = stats.seconds_per_round()
 	_add_recoil()
 	_show_muzzle_flash()
-	_play(stats.fire_sound)
+	_play(stats.fire_sound, stats.fire_volume_db)
 	fired.emit()
 	ammo_changed.emit(magazine, reserve)
 	var space := get_world_3d().direct_space_state
@@ -182,9 +193,11 @@ func _add_recoil() -> void:
 	recoil_yaw += yaw * recover
 	recoil_hold_pitch += pitch * (1.0 - recover)
 	recoil_hold_yaw += yaw * (1.0 - recover)
-	_visual_kick += stats.visual_kick * scale
-	_visual_pitch += deg_to_rad(stats.visual_pitch_degrees) * scale
-	_visual_yaw += deg_to_rad(stats.visual_yaw_degrees) * scale * _yaw_sign
+	_visual_kick = minf(_visual_kick + stats.visual_kick * scale, stats.visual_kick * 3.4)
+	_visual_pitch = minf(_visual_pitch + deg_to_rad(stats.visual_pitch_degrees) * scale, deg_to_rad(stats.visual_pitch_degrees) * 3.0)
+	var yaw_kick := deg_to_rad(stats.visual_yaw_degrees) * scale * _yaw_sign
+	var yaw_cap := deg_to_rad(stats.visual_yaw_degrees) * 2.4
+	_visual_yaw = clampf(_visual_yaw + yaw_kick, -yaw_cap, yaw_cap)
 
 func _update_recoil(delta: float) -> void:
 	var blend := 1.0 - exp(-stats.recoil_recovery * delta)
@@ -222,8 +235,12 @@ func _update_view(delta: float, look_delta: Vector2, on_floor: bool) -> void:
 	var follow := 1.0 - exp(-10.0 * delta)
 	_sway_yaw = lerpf(_sway_yaw, target_yaw, follow)
 	_sway_pitch = lerpf(_sway_pitch, target_pitch, follow)
+	_idle_time += delta
+	_equip = move_toward(_equip, 1.0, delta * 4.2)
+	var sprinting := _wants_sprint and _ads < 0.25 and not _reloading
+	_sprint_blend = move_toward(_sprint_blend, 1.0 if sprinting else 0.0, delta * 6.0)
 	var bob := Vector3.ZERO
-	if on_floor and _move_speed > 0.4:
+	if on_floor and _move_speed > 0.4 and _sprint_blend < 0.85:
 		_bob_time += delta * _move_speed * 1.6
 		var amount := stats.bob_amount * steady
 		bob = Vector3(sin(_bob_time * 0.5) * amount * 0.6, absf(sin(_bob_time)) * amount, 0.0)
@@ -238,11 +255,32 @@ func _update_view(delta: float, look_delta: Vector2, on_floor: bool) -> void:
 	var basis := hip_basis.slerp(ads_basis, _ads)
 	var ads_position := Vector3(0.0, 0.0, -stats.ads_eye_distance) - ads_basis * _rear_local
 	var position := stats.hip_position.lerp(ads_position, _ads)
+	var sprint_pose := Vector3(0.04, -0.34, -0.1)
+	position = position.lerp(sprint_pose, _sprint_blend * (1.0 - _ads))
 	position += bob + Vector3(_sway_yaw, _sway_pitch, 0.0)
+	if _move_speed < 0.35:
+		position.y += sin(_idle_time * 1.5) * 0.004 * (1.0 - _ads)
+	var reload_wave := 0.0
+	if _reloading and stats.reload_seconds > 0.05:
+		var phase := 1.0 - clampf(_reload_left / stats.reload_seconds, 0.0, 1.0)
+		reload_wave = sin(phase * PI)
+		position.y -= reload_wave * 0.05
+		position.z += reload_wave * 0.03
+	position.y -= (1.0 - _equip) * 0.24
 	position += basis * Vector3(0.0, 0.0, _visual_kick)
-	basis = basis * Basis.from_euler(Vector3(_visual_pitch, _visual_yaw, 0.0))
+	basis = basis * Basis.from_euler(Vector3(
+		_visual_pitch + reload_wave * 0.18 + _sprint_blend * 0.42,
+		_visual_yaw + _sprint_blend * 0.08,
+		_sprint_blend * 0.22
+	))
 	_view.position = position
 	_view.basis = basis
+	_pose_magazine(reload_wave)
+
+func _pose_magazine(reload_wave: float) -> void:
+	if _mag == null:
+		return
+	_mag.position = _mag_rest + Vector3(0.0, -0.1 * reload_wave, 0.03 * reload_wave)
 
 func _sight_basis() -> Basis:
 	var direction := _front_local - _rear_local
@@ -268,6 +306,8 @@ func _rebuild_view() -> void:
 		_muzzle_flash.position = _muzzle_local
 	if _muzzle_light != null:
 		_muzzle_light.position = _muzzle_local
+	_mag = _view.get_node_or_null("Art/Magazine") as Node3D
+	_mag_rest = _mag.position if _mag != null else Vector3.ZERO
 
 func _art_point(marker: Node3D) -> Vector3:
 	if marker == null:
@@ -294,9 +334,10 @@ func _hide_muzzle_flash() -> void:
 	_muzzle_flash.visible = false
 	_muzzle_light.visible = false
 
-func _play(stream: AudioStream) -> void:
+func _play(stream: AudioStream, volume_db: float) -> void:
 	if stream == null:
 		return
+	_audio.volume_db = volume_db
 	_audio.stream = stream
 	_audio.play()
 

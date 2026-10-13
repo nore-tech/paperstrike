@@ -38,6 +38,7 @@ enum Form { PISTOL, RIFLE, SHOTGUN }
 @export var fire_sound: AudioStream
 @export var reload_sound: AudioStream
 @export var empty_sound: AudioStream
+@export var fire_volume_db: float = -6.0
 
 func seconds_per_round() -> float:
 	return 1.0 / maxf(rounds_per_second, 0.1)

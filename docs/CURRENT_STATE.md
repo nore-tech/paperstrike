@@ -1,6 +1,6 @@
 # Current state
 
-The test room is now the firing range. The player spawns with the pistol. The assault rifle and shotgun are physical pickups. Stationary dummies sit at three distances, and a button resets them without reloading the scene. Movement is a state machine on the player: idle, walking, sprinting, crouching, prone, sliding, jumping, and falling. Weapons are layered paper meshes with iron sights, aim-down-sights alignment, and split camera/visual recoil. Enemy AI, objectives, and extraction are not implemented. The next phase has not been started.
+The test room is now the firing range. The player spawns with the pistol. The assault rifle and shotgun are physical pickups. Stationary dummies sit at three distances, and a button resets them without reloading the scene. Movement is a state machine on the player: idle, walking, sprinting, crouching, prone, sliding, jumping, and falling. A slide can be cancelled into a jump, a sprint, a stand, or prone. The assault rifle is a cardboard viewmodel with a tube barrel and a separate magazine. The pistol and shotgun are still layered paper. Enemy AI, objectives, and extraction are not implemented. The next phase has not been started.
 
 ## Repo
 
@@ -21,7 +21,9 @@ Crouch is hold Left Ctrl. The capsule shortens around the feet, and the camera e
 
 Prone is Z, a toggle, and its own state. The collision becomes a low box (`prone_height`, `prone_width`, `prone_length`) so the body is actually shorter, not just a lower camera. Crawl speed is `prone_speed`. Sprint and jump do not run while prone. Going prone is refused when that box does not fit. Z again stands if the ceiling is clear, or settles into a crouch when a crouch fits and a stand does not. Holding Ctrl while prone also returns to a crouch when the crouch fits.
 
-Slide is Left Ctrl while sprinting and at least `slide_min_speed`. Entry multiplies current speed by `slide_entry_boost` (default 1.1) and caps it at 115% of sprint speed, so the slide starts faster than the sprint instead of braking. Friction then eases it down across about a second (`slide_friction`, `slide_max_seconds`). Steering uses `slide_steer`. Look is never locked. Another slide waits out `slide_cooldown` and needs a sprint again. Jump does not start during a slide. When it ends, leftover horizontal speed stays. Shift still held, and the ceiling clear, goes straight back into a sprint. Ctrl held, or a ceiling, stays crouched.
+Slide is Left Ctrl while sprinting and at least `slide_min_speed`. You have to keep holding Ctrl. Entry multiplies speed by `slide_entry_boost` (default 1.1) only when you are not already above sprint speed, and the result is capped at 115% of sprint, so a second slide cannot stack another boost. Friction then eases it down (`slide_friction`, `slide_max_seconds`). Steering uses `slide_steer`. Look is never locked. Another slide waits out `slide_cooldown`.
+
+The slide is not a lock. Space, while grounded, jumps immediately and leaves the horizontal speed alone for that frame so the air carry keeps it. Releasing Ctrl ends the slide and eases toward stand or crouch speed instead of zeroing it. Pressing Shift again, when a standing capsule fits, ends the slide and stands you up even if Ctrl is still held, until Ctrl is released. Z goes prone and ends the slide. Ctrl leaves prone only on a new press, so the hold used to slide does not cancel prone on the same frame. A ceiling still blocks standing. Jump stays disabled while prone.
 
 Jump is Space, from walk, sprint, or crouch, only while grounded, with a short lock so the floor cannot double-fire it. Jump speed is `sqrt(2 * gravity * jump_height)`.
 
@@ -29,11 +31,13 @@ The camera keeps mouse look and the vertical clamp. A small vertical bob is adde
 
 ## Aim, sights, and recoil
 
-`PaperWeaponView` builds the pistol, rifle, and shotgun from layered boxes on the existing paper material: receiver, barrel, grip, magazine or tube, stock where it belongs, and a rear notch plus a front post. `WeaponStats.form` picks the mesh. Hip position, hip rotation, ADS FOV, ADS time, and `ads_eye_distance` are on that same resource.
+`PaperWeaponView` builds the pistol and shotgun from layered boxes. The rifle is the finished cardboard model: separate nodes for receiver, barrel, handguard, stock, grip, trigger guard, magazine, and muzzle. The barrel and muzzle are 12-sided cardboard tubes, not boxes. Panels use the shared paper fiber material in tan and brown, with darker seams and a few folded flaps. `WeaponStats.form` picks the mesh. Hip position, hip rotation, ADS FOV, ADS time, and `ads_eye_distance` are on that same resource. There is no imported GLB. Godot can import glTF, and this pass stayed procedural so the rifle did not add a modeling dependency.
 
 Aim is right click. The viewmodel pose is not a shove toward the camera. `HitscanWeapon` reads the `RearSight` and `FrontSight` markers and solves a basis so that sight line lies on the camera forward axis, with the rear sight `ads_eye_distance` in front of the eye. Hip and ADS poses blend over `ads_time`. The hip-fire crosshair hides once aim blend passes 0.45. Hitscan rays still leave the camera along its look direction, which is the same line as the sights when recoil and sway are zero. Spread still applies.
 
-Firing adds two recoils. A fraction `camera_recover` springs the view back. The rest is added to the camera and stays, so automatic fire climbs and the mouse has to pull it down. The gun mesh also kicks backward and pitches up, then `visual_recovery` eases it home. `ads_recoil_scale` reduces both while aiming. Per-weapon values live on the three `WeaponStats` resources. Yaw alternates sign instead of being fully random.
+Firing adds two recoils. A fraction `camera_recover` springs the view back. The rest is added to the camera and stays, so automatic fire climbs and the mouse has to pull it down. The gun mesh kicks backward, pitches up, and yaws a little. Those visual offsets accumulate up to a cap, then `visual_recovery` eases them home, including while aiming at `ads_recoil_scale`. Per-weapon values live on the three `WeaponStats` resources.
+
+The viewmodel also breathes when you are still, bobs while walking, drops and pitches down while sprinting, dips on reload while the `Magazine` node pulls down and back, and rises from below when equipped. Switching guns is the new gun's draw. There is no separate holster clip before the swap.
 
 Stationary prone cuts weapon sway. ADS cuts it further. Shooting, reloading, weapon switching, and pickups are unchanged by the stance.
 
@@ -122,7 +126,7 @@ Reload (`R`) fills the magazine from reserve after `reload_seconds`. It does not
 | Assault Rifle | Auto | 16 | 9 / s | 30 / 90 | Pickup. Holds the trigger |
 | Shotgun | Semi | 12 × 8 pellets | 1.1 / s | 6 / 24 | Pickup. 16 m range, wide cone |
 
-Placeholder noises live in `audio/sfx/`. The viewmodel is still a cardboard box, tinted per weapon. `AmmoHud` shows the name, mode, magazine, reserve, and reloading.
+Gunshots in `audio/sfx/` are synthesized 16-bit waves, not recordings. Each one is a short lowpassed body, a brief click, and a quiet tail, peaked at 0.4 so they do not clip. The rifle shot is 85 ms so automatic fire restarts a short sound instead of stacking. `WeaponStats.fire_volume_db` is the per-gun playback level (pistol -6 dB, rifle -8 dB, shotgun -7 dB). Reload and the empty click stay quieter. These are still placeholders: no real mechanical recording and no room impulse. `AmmoHud` shows the name, mode, magazine, reserve, and reloading.
 
 ## Validation
 
@@ -152,6 +156,11 @@ A later headless script, not committed, printed `CHECK_OK handling` after the sl
 - With aim held, the pistol, rifle, and shotgun sight markers sit within 2.5 cm of the camera forward ray. The crosshair hides.
 - One pistol shot sets visual pitch, held camera recoil, and a camera kick. A seeded shot still damages the close dummy.
 
+A later headless script printed `CHECK_OK phase26`:
+
+- The rifle view has cardboard tubes, layered panels, and named parts including `Magazine`. Its sight markers sit within 3 cm of the camera ray while aiming. Two shots increase visual pitch.
+- A sprint into held Ctrl starts a slide above sprint speed. Space leaves the slide with upward speed and most of that horizontal speed. Releasing Ctrl ends the slide without dumping speed. Releasing Shift does not end it; pressing Shift again does. Z from a slide enters prone. Starting a slide already above the boost cap does not go past 116% of sprint speed.
+
 A headless script before that, also not committed, printed `CHECK_OK movement` against the same range:
 
 - Walk speed eases in, then returns to idle after the keys are released. Diagonal speed stays near the forward speed. Reversing direction reaches a positive Z velocity within 0.35 s.
@@ -173,14 +182,14 @@ This was not a manual playthrough in a window. Two physics frame rates were not 
 - World guns are colored boxes, not finished models.
 - Interaction is one camera ray, 2.6 m, against the first body. It does not pick through overlapping props.
 - Targets do not move or shoot.
-- No inventory grid, weapon mods, penetration, or bullet drop. Reload is one timer. Spread is an even cone. Gun art and sounds are placeholders.
+- No inventory grid, weapon mods, penetration, or bullet drop. Reload is one timer plus a magazine dip, not a detach animation. Spread is an even cone. Gunshots are synthesized, not recorded.
 - No enemy AI, objectives, extraction, or player health.
-- Jumping is disabled during a slide and while prone. There is no coyote time and no air jump.
+- Jumping during a slide leaves the ground and keeps horizontal speed. Jumping while prone is still disabled. There is no coyote time and no air jump.
 - Part of each shot's camera kick stays until the player pulls the mouse down. That is intentional.
-- Sight alignment was measured in a headless run, not judged by eye in a window. The guns are built from boxes, not finished art.
+- Sight alignment was measured in a headless run, not judged by eye in a window. The rifle was not screenshot in this environment because the headless renderer has no viewport texture. Pistol and shotgun meshes are still boxes.
 - Headless play does not keep the mouse captured, so the handling script confirmed aim with the aim action held and confirmed the recoil kick by calling the weapon update directly.
 - A slide adds a capped entry boost, then eases off. It does not keep climbing if you chain slides.
-- Gun art and sounds are still placeholders in the sense that the meshes are procedural boxes. They are no longer a single crate.
+- The pistol and shotgun are still procedural paper boxes. Only the assault rifle has the cardboard tube-and-layer construction. A reference image was described in the request and was not present on disk, so the rifle follows that written description rather than a traced photo.
 - Camera bob is only vertical and small. The viewmodel still has its own bob, so the gun is not perfectly still.
 - Crouch and slide clearance is the shortened capsule. Very thin gaps under `crouch_height` (1.05 m) will not pass.
 - Head bob while crouched or aiming is scaled in code. The headless check measured walking bob and the landing dip, not a separate crouch-bob sample.

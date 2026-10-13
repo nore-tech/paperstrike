@@ -39,20 +39,64 @@ static func _pistol(art: Node3D, body: Color, dark: Color, mag: Color, sight: Co
 	_marker(art, "FrontSight", Vector3(0, 0.034, -0.125))
 	_marker(art, "MuzzlePoint", Vector3(0, 0.008, -0.162))
 
-static func _rifle(art: Node3D, body: Color, dark: Color, mag: Color, sight: Color) -> void:
-	_slab(art, Vector3(0, -0.004, 0.2), Vector3(0.03, 0.072, 0.18), body.darkened(0.08), dark)
-	_slab(art, Vector3(0, 0.0, 0.02), Vector3(0.038, 0.052, 0.2), body, dark)
-	_slab(art, Vector3(0, -0.006, -0.15), Vector3(0.034, 0.04, 0.15), body.lightened(0.04), dark)
-	_slab(art, Vector3(0, 0.01, -0.34), Vector3(0.012, 0.012, 0.28), dark, dark.darkened(0.15))
-	_slab(art, Vector3(0, -0.078, 0.03), Vector3(0.022, 0.11, 0.038), mag, mag.darkened(0.15))
-	_slab(art, Vector3(0, -0.05, 0.09), Vector3(0.022, 0.062, 0.034), body.darkened(0.15), dark)
-	_slab(art, Vector3(0, 0.036, 0.07), Vector3(0.028, 0.012, 0.018), sight, sight)
-	_slab(art, Vector3(-0.01, 0.048, 0.07), Vector3(0.008, 0.014, 0.01), sight, sight)
-	_slab(art, Vector3(0.01, 0.048, 0.07), Vector3(0.008, 0.014, 0.01), sight, sight)
-	_slab(art, Vector3(0, 0.03, -0.45), Vector3(0.008, 0.028, 0.008), sight, sight)
-	_marker(art, "RearSight", Vector3(0, 0.042, 0.07))
-	_marker(art, "FrontSight", Vector3(0, 0.042, -0.45))
-	_marker(art, "MuzzlePoint", Vector3(0, 0.01, -0.49))
+static func _rifle(_art: Node3D, _body: Color, _dark: Color, _mag: Color, _sight: Color) -> void:
+	var kraft := Color(0.74, 0.58, 0.39)
+	var tan := Color(0.86, 0.73, 0.52)
+	var board := Color(0.58, 0.42, 0.27)
+	var seam := Color(0.36, 0.25, 0.16)
+	var bore := Color(0.14, 0.1, 0.07)
+	var stock := _group(_art, "Stock")
+	var receiver := _group(_art, "Receiver")
+	var barrel := _group(_art, "Barrel")
+	var handguard := _group(_art, "Handguard")
+	var grip := _group(_art, "Grip")
+	var guard := _group(_art, "TriggerGuard")
+	var magazine := _group(_art, "Magazine")
+	var muzzle := _group(_art, "Muzzle")
+	_panel(stock, Vector3(0, -0.01, 0.34), Vector3(0.034, 0.078, 0.16), kraft, Vector3(0.04, 0, 0))
+	_panel(stock, Vector3(0, 0.02, 0.3), Vector3(0.026, 0.02, 0.12), tan)
+	_panel(stock, Vector3(0, -0.01, 0.42), Vector3(0.04, 0.09, 0.016), board)
+	_panel(stock, Vector3(0.02, 0.0, 0.33), Vector3(0.006, 0.06, 0.12), seam, Vector3(0, 0, 0.35))
+	_panel(stock, Vector3(-0.02, 0.0, 0.33), Vector3(0.006, 0.06, 0.12), seam, Vector3(0, 0, -0.3))
+	_panel(receiver, Vector3(0, -0.008, 0.06), Vector3(0.048, 0.046, 0.22), kraft)
+	_panel(receiver, Vector3(0, 0.022, 0.05), Vector3(0.04, 0.024, 0.2), tan, Vector3(0, 0.02, 0))
+	_panel(receiver, Vector3(0, 0.008, 0.05), Vector3(0.05, 0.006, 0.2), seam)
+	_panel(receiver, Vector3(0.026, 0.0, 0.06), Vector3(0.006, 0.04, 0.18), board)
+	_panel(receiver, Vector3(-0.026, 0.0, 0.06), Vector3(0.006, 0.04, 0.18), board.darkened(0.06))
+	_panel(receiver, Vector3(0, 0.038, 0.02), Vector3(0.03, 0.008, 0.09), tan.lightened(0.04), Vector3(0, 0.03, 0))
+	_panel(receiver, Vector3(0.03, 0.012, 0.08), Vector3(0.012, 0.004, 0.05), tan, Vector3(0, 0, 0.6))
+	_panel(receiver, Vector3(-0.03, 0.01, 0.02), Vector3(0.012, 0.004, 0.045), board, Vector3(0, 0, -0.55))
+	_panel(grip, Vector3(0, -0.055, 0.11), Vector3(0.028, 0.078, 0.04), board, Vector3(0.22, 0, 0))
+	_panel(grip, Vector3(0, -0.05, 0.112), Vector3(0.03, 0.05, 0.01), seam)
+	_panel(guard, Vector3(0, -0.038, 0.045), Vector3(0.02, 0.006, 0.055), seam)
+	_panel(guard, Vector3(0, -0.024, 0.02), Vector3(0.02, 0.028, 0.006), seam)
+	_panel(guard, Vector3(0, -0.024, 0.072), Vector3(0.02, 0.028, 0.006), seam)
+	_panel(magazine, Vector3(0, -0.07, 0.0), Vector3(0.026, 0.1, 0.04), board, Vector3(0.06, 0, 0))
+	_panel(magazine, Vector3(0.012, -0.07, 0.0), Vector3(0.006, 0.09, 0.034), kraft)
+	_panel(magazine, Vector3(-0.012, -0.07, 0.0), Vector3(0.006, 0.09, 0.034), kraft.darkened(0.05))
+	_panel(magazine, Vector3(0, -0.122, 0.0), Vector3(0.032, 0.012, 0.046), seam)
+	_panel(magazine, Vector3(0, -0.09, 0.018), Vector3(0.02, 0.004, 0.008), tan)
+	_panel(handguard, Vector3(0, 0.03, -0.12), Vector3(0.04, 0.008, 0.18), tan, Vector3(0, -0.02, 0))
+	_panel(handguard, Vector3(0, -0.012, -0.12), Vector3(0.038, 0.008, 0.17), kraft)
+	_panel(handguard, Vector3(0.02, 0.01, -0.12), Vector3(0.006, 0.032, 0.17), board)
+	_panel(handguard, Vector3(-0.02, 0.01, -0.12), Vector3(0.006, 0.032, 0.17), board.darkened(0.05))
+	_panel(handguard, Vector3(0, 0.034, -0.16), Vector3(0.028, 0.004, 0.012), seam)
+	_panel(handguard, Vector3(0, 0.034, -0.1), Vector3(0.028, 0.004, 0.012), seam)
+	_panel(handguard, Vector3(0.024, 0.012, -0.14), Vector3(0.004, 0.02, 0.05), tan, Vector3(0, 0, 0.4))
+	_tube(barrel, Vector3(0, 0.012, -0.28), 0.4, 0.012, kraft)
+	_tube(barrel, Vector3(0, 0.012, -0.2), 0.018, 0.016, board)
+	_tube(barrel, Vector3(0, 0.012, -0.28), 0.016, 0.0155, tan)
+	_tube(barrel, Vector3(0, 0.012, -0.36), 0.014, 0.015, board)
+	_tube(muzzle, Vector3(0, 0.012, -0.47), 0.02, 0.017, seam)
+	_tube(muzzle, Vector3(0, 0.012, -0.482), 0.012, 0.007, bore)
+	_panel(_art, Vector3(-0.011, 0.058, 0.1), Vector3(0.008, 0.02, 0.012), bore)
+	_panel(_art, Vector3(0.011, 0.058, 0.1), Vector3(0.008, 0.02, 0.012), bore)
+	_panel(_art, Vector3(0, 0.046, 0.1), Vector3(0.028, 0.006, 0.012), seam)
+	_panel(_art, Vector3(0, 0.04, -0.38), Vector3(0.012, 0.012, 0.014), board)
+	_panel(_art, Vector3(0, 0.056, -0.38), Vector3(0.005, 0.022, 0.005), bore)
+	_marker(_art, "RearSight", Vector3(0, 0.055, 0.1))
+	_marker(_art, "FrontSight", Vector3(0, 0.055, -0.38))
+	_marker(_art, "MuzzlePoint", Vector3(0, 0.012, -0.49))
 
 static func _shotgun(art: Node3D, body: Color, dark: Color, mag: Color, sight: Color) -> void:
 	_slab(art, Vector3(0, 0.0, 0.2), Vector3(0.032, 0.078, 0.2), body.darkened(0.06), dark)
@@ -67,6 +111,44 @@ static func _shotgun(art: Node3D, body: Color, dark: Color, mag: Color, sight: C
 	_marker(art, "RearSight", Vector3(0, 0.038, 0.06))
 	_marker(art, "FrontSight", Vector3(0, 0.038, -0.48))
 	_marker(art, "MuzzlePoint", Vector3(0, 0.012, -0.52))
+
+static func _group(parent: Node3D, node_name: String) -> Node3D:
+	var group := Node3D.new()
+	group.name = node_name
+	parent.add_child(group)
+	return group
+
+static func _panel(parent: Node3D, center: Vector3, size: Vector3, color: Color, rot := Vector3.ZERO) -> void:
+	var card := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	card.mesh = box
+	card.position = center
+	card.rotation = rot
+	var paper := PaperMaterial.new()
+	paper.albedo = color
+	paper.roughness = 0.96
+	paper.uv_scale = Vector3(3.5, 3.5, 3.5)
+	card.set_surface_override_material(0, paper.build())
+	parent.add_child(card)
+
+static func _tube(parent: Node3D, center: Vector3, length: float, radius: float, color: Color) -> void:
+	var card := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = radius
+	cyl.bottom_radius = radius * 0.96
+	cyl.height = length
+	cyl.radial_segments = 12
+	cyl.rings = 1
+	card.mesh = cyl
+	card.position = center
+	card.rotation.x = PI * 0.5
+	var paper := PaperMaterial.new()
+	paper.albedo = color
+	paper.roughness = 0.97
+	paper.uv_scale = Vector3(2.0, 5.0, 2.0)
+	card.set_surface_override_material(0, paper.build())
+	parent.add_child(card)
 
 static func _slab(parent: Node3D, center: Vector3, size: Vector3, face: Color, edge: Color) -> void:
 	var rim := MeshInstance3D.new()

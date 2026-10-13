@@ -9,9 +9,11 @@ The firing range is the weapon and damage test level. Movement tuning lives in `
 - [x] Firing range: shared interactables, weapon pickups, ammunition crate, target manager, respawn button
 - [x] Player movement: accel, sprint, crouch, slide, jump, bob, and landing dip from `MovementProfile`
 - [x] Movement and weapon handling: longer slides, prone, paper guns, iron-sight ADS, visible recoil
+- [x] Slide cancels (jump, sprint, crouch release, prone) and one cardboard assault rifle
+- [ ] Cardboard pistol and shotgun at the same detail as the rifle
 - [ ] Enemy AI
 - [ ] Objective and extraction level
-- [ ] Final weapon art, HUD polish, and audio beyond the placeholders
+- [ ] Recorded gunshots to replace the synthesized placeholders, HUD polish
 
 ## Adding a weapon pickup
 
