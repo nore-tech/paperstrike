@@ -1,0 +1,20 @@
+; Engine configuration file.
+; Paperstrike — Godot 4.x. No main scene yet. Gameplay is not implemented.
+
+config_version=5
+
+[application]
+
+config/name="Paperstrike"
+config/description="A small single-player 2.5D first-person shooter with a paper and cardboard look."
+config/features=PackedStringArray("4.4", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
