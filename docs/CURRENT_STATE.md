@@ -1,6 +1,6 @@
 # Current state
 
-The test room is now the firing range. The player spawns with the pistol. The assault rifle and shotgun are physical pickups. Stationary dummies sit at three distances, and a button resets them without reloading the scene. Enemy AI, objectives, and extraction are not implemented.
+The test room is now the firing range. The player spawns with the pistol. The assault rifle and shotgun are physical pickups. Stationary dummies sit at three distances, and a button resets them without reloading the scene. Movement is a state machine on the player: idle, walking, sprinting, crouching, sliding, jumping, and falling. Enemy AI, objectives, and extraction are not implemented. Phase 2B has not been started.
 
 ## Repo
 
@@ -8,6 +8,22 @@ The test room is now the firing range. The player spawns with the pistol. The as
 - Account: `nore-tech`
 - Branch: `main`
 - Engine: Godot 4.x, feature `4.4`, Forward Plus. Main scene: `scenes/levels/test_room.tscn`.
+
+## Movement
+
+`MovementProfile` (`resources/player/movement_profile.tres`, script `scripts/player/movement_profile.gd`) holds the speeds, acceleration, jump height, capsule sizes, slide friction, and camera bob. `Player` is the only reader. Change that resource to retune movement. Do not copy the numbers into other scripts.
+
+Horizontal speed eases toward the wish direction with `1 - exp(-rate * delta)`, so the step does not depend on the frame rate. Diagonals come from `Input.get_vector`, which is already normalized. Releasing the keys eases speed back to zero. In the air, steering is weaker and does not raise speed above the faster of the current speed and the ground target.
+
+Sprint is Left Shift, and it is cancelled while crouching or while aim blend is at least 0.2. Firing and reload are unchanged.
+
+Crouch is hold Left Ctrl. The capsule shortens around the feet, and the camera eases down inside that capsule. Overhead clearance is a standing-capsule shape query. If it hits, the player stays crouched.
+
+Slide is Left Ctrl while sprinting and at least `slide_min_speed`. It keeps the current horizontal velocity, steers a little, and bleeds speed with `slide_friction` until `slide_end_speed` or `slide_max_seconds`. The crouched capsule is what can pass under a gap. Another slide waits out `slide_cooldown` and needs a real sprint again, so holding crouch cannot chain slides. Jump does not start during a slide. When the slide ends, the player stays down if Ctrl is held or the ceiling is blocked, and stands otherwise.
+
+Jump is Space, from walk, sprint, or crouch, only while grounded, with a short lock so the floor cannot double-fire it. Jump speed is `sqrt(2 * gravity * jump_height)`.
+
+The camera keeps mouse look and the vertical clamp. A small vertical bob is added while walking and scaled down by `bob_ads_scale` and `bob_crouch_scale`. A short landing dip plays after a hard landing. The weapon stays parented to the camera, and its own viewmodel bob is unchanged.
 
 ## Interaction
 
@@ -100,7 +116,7 @@ Placeholder noises live in `audio/sfx/`. The viewmodel is still a cardboard box,
 
 Godot 4.4.1 stable (`4.4.1.stable.official.49a5bc7b6`).
 
-Exited 0 with no script errors:
+On this slice, import and `--quit-after 30` exited 0 with no script errors. The movement script below was run after the controller change. The firing-range list is from the previous slice and was not re-run; the movement script did repeat an unowned-rifle check and one pistol shot.
 
 - `--headless --path . --import --quit`
 - `--headless --path . --quit-after 30`
@@ -117,7 +133,17 @@ A headless script, not committed, loaded the range and printed `CHECK_OK firing 
 - 0.35 s later that dummy is still in the tree and its card scale is not collapsed.
 - A seeded pistol shot from `(0, 1.2, 10)` aimed down the lane left the close center dummy at 66 health before that kill.
 
-This was not a manual playthrough in a window.
+A second headless script, also not committed, printed `CHECK_OK movement` against the same range:
+
+- Walk speed eases in, then returns to idle after the keys are released. Diagonal speed stays near the forward speed. Reversing direction reaches a positive Z velocity within 0.35 s.
+- Sprint exceeds the walk speed and stays at or under the sprint speed. Holding aim brings it back down to a walk.
+- Crouch shortens the capsule, lowers the camera, and slows movement. A ceiling blocks standing until it is removed.
+- A sprint into Ctrl enters the slide state, speed drops, jump does not leave the floor, and the slide ends in a crouch. Holding crouch and shift does not start another slide.
+- One Space leaves the ground. A second press in the air does not increase upward speed. After landing, Space jumps again.
+- Walking bob moves the camera by a small span. A drop from 2.6 m produces a landing dip.
+- An unowned rifle still cannot be selected, and a seeded pistol shot still damages the close dummy.
+
+This was not a manual playthrough in a window. Two physics frame rates were not compared. The step uses delta, but that property was not measured by running the game at two refresh rates.
 
 ## Known limitations
 
@@ -130,7 +156,12 @@ This was not a manual playthrough in a window.
 - Targets do not move or shoot.
 - No inventory grid, weapon mods, penetration, or bullet drop. Reload is one timer. Spread is an even cone. Gun art and sounds are placeholders.
 - No enemy AI, objectives, extraction, or player health.
+- Jumping is disabled during a slide. There is no coyote time and no air jump.
+- Slide steer is light. A slide does not add speed on top of the sprint you already had.
+- Camera bob is only vertical and small. The viewmodel still has its own bob, so the gun is not perfectly still.
+- Crouch and slide clearance is the shortened capsule. Very thin gaps under `crouch_height` (1.05 m) will not pass.
+- Head bob while crouched or aiming is scaled in code. The headless check measured walking bob and the landing dip, not a separate crouch-bob sample.
 
 ## Recommended next
 
-When asked: one enemy that can fight, using `PaperCard` for the picture and a separate 3D body for hits. Do not start that until asked.
+Phase 2B has not been started. Do not begin it until asked.

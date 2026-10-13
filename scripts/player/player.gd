@@ -1,18 +1,22 @@
 extends CharacterBody3D
 
-## First-person body. Owns movement and look. The equipped HitscanWeapon owns firing.
+## First-person body. Owns movement, look, and which guns are carried.
+## The equipped HitscanWeapon owns firing.
+
+enum MoveState { IDLE, WALKING, SPRINTING, CROUCHING, SLIDING, JUMPING, FALLING }
 
 const PISTOL := preload("res://resources/weapons/pistol.tres")
 const RIFLE := preload("res://resources/weapons/rifle.tres")
 const SHOTGUN := preload("res://resources/weapons/shotgun.tres")
+const _DEFAULT_PROFILE := preload("res://resources/player/movement_profile.tres")
 
-@export var walk_speed := 5.0
-@export var sprint_speed := 8.0
-@export var jump_velocity := 4.5
-@export var mouse_sensitivity := 0.002
+@export var profile: MovementProfile
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _weapon: HitscanWeapon = $Camera3D/HitscanWeapon
+@onready var _collision: CollisionShape3D = $CollisionShape3D
+
+var move_state: MoveState = MoveState.IDLE
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _hip_fov := 75.0
@@ -24,11 +28,32 @@ var _trigger_was_down := false
 var _owned: Array[String] = []
 var _loadout: Dictionary = {}
 var _saved_ammo: Dictionary = {}
+var _capsule: CapsuleShape3D
+var _stance := 0.0
+var _sliding := false
+var _slide_dir := Vector3.FORWARD
+var _slide_time := 0.0
+var _slide_cooldown := 0.0
+var _jump_lock := 0.0
+var _bob_time := 0.0
+var _bob := 0.0
+var _land_dip := 0.0
+var _stand_query: CapsuleShape3D
 const _INTERACT_RANGE := 2.6
 
 func _ready() -> void:
 	_ensure_input_map()
+	if profile == null:
+		profile = _DEFAULT_PROFILE
 	_hip_fov = _camera.fov
+	var source := _collision.shape as CapsuleShape3D
+	_capsule = source.duplicate()
+	_capsule.radius = profile.capsule_radius
+	_capsule.height = profile.stand_height
+	_collision.shape = _capsule
+	_stand_query = CapsuleShape3D.new()
+	_stand_query.radius = profile.capsule_radius * 0.9
+	_stand_query.height = maxf(profile.stand_height - 0.08, profile.capsule_radius * 2.0 + 0.02)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	give_weapon(PISTOL)
 
@@ -38,7 +63,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var ads := _weapon.ads_blend()
-		var sensitivity := mouse_sensitivity * lerpf(1.0, 0.62, ads)
+		var sensitivity := profile.mouse_sensitivity * lerpf(1.0, 0.62, ads)
 		rotate_y(-event.relative.x * sensitivity)
 		_camera.rotate_x(-event.relative.y * sensitivity)
 		_camera.rotation.x = clampf(_camera.rotation.x, deg_to_rad(-89.0), deg_to_rad(89.0))
@@ -62,21 +87,28 @@ func _unhandled_input(event: InputEvent) -> void:
 			looked.interact(self)
 
 func _physics_process(delta: float) -> void:
-	if not is_on_floor():
-		velocity.y -= _gravity * delta
-	elif Input.is_action_just_pressed("jump"):
-		velocity.y = jump_velocity
-
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-	var speed := sprint_speed if Input.is_action_pressed("sprint") and _weapon.ads_blend() < 0.2 else walk_speed
-	if direction:
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
+	var wish := _wish_direction()
+	var ads_blocking := _weapon.ads_blend() >= 0.2
+	var crouch_held := Input.is_action_pressed("crouch")
+	var sprint_held := Input.is_action_pressed("sprint") and not ads_blocking
+	_slide_cooldown = maxf(0.0, _slide_cooldown - delta)
+	if not _sliding and Input.is_action_just_pressed("crouch"):
+		_try_begin_slide(sprint_held, ads_blocking)
+	if _sliding:
+		_apply_slide(delta, wish)
 	else:
-		velocity.x = 0.0
-		velocity.z = 0.0
+		var low := crouch_held or _stance > 0.55
+		_apply_horizontal(delta, wish, _target_speed(wish, sprint_held, low))
+	_apply_vertical(delta)
+	_update_stance(delta, crouch_held)
+	_apply_capsule()
+	var fall_speed := -velocity.y
+	var was_air := not is_on_floor()
 	move_and_slide()
+	if is_on_floor():
+		if was_air and fall_speed >= profile.land_dip_min_speed:
+			_land_dip = profile.land_dip
+	_refresh_state(wish, sprint_held and not crouch_held)
 
 func _process(delta: float) -> void:
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
@@ -89,7 +121,11 @@ func _process(delta: float) -> void:
 	_look_delta = Vector2.ZERO
 	_apply_recoil()
 	_camera.fov = lerpf(_hip_fov, _weapon.stats.ads_fov if _weapon.stats != null else _hip_fov, _weapon.ads_blend())
+	_update_camera_motion(delta)
 	_update_prompt()
+
+func state_name() -> String:
+	return MoveState.keys()[move_state]
 
 func owns_weapon(stats: WeaponStats) -> bool:
 	return stats != null and stats.resource_path in _owned
@@ -124,6 +160,134 @@ func select_weapon(stats: WeaponStats) -> void:
 
 func restock_equipped() -> void:
 	_weapon.restock()
+
+func _wish_direction() -> Vector3:
+	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if input_dir.length_squared() < 0.0001:
+		return Vector3.ZERO
+	return (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+
+func _target_speed(wish: Vector3, sprint_held: bool, low: bool) -> float:
+	if wish.length_squared() < 0.0001:
+		return 0.0
+	if low:
+		return profile.crouch_speed
+	if sprint_held:
+		return profile.sprint_speed
+	return profile.walk_speed
+
+func _apply_horizontal(delta: float, wish: Vector3, speed: float) -> void:
+	var current := Vector3(velocity.x, 0.0, velocity.z)
+	var on_floor := is_on_floor()
+	if on_floor:
+		var rate := profile.ground_accel if wish.length_squared() > 0.0001 else profile.ground_decel
+		var blend := 1.0 - exp(-rate * delta)
+		current = current.lerp(wish * speed, blend)
+	elif wish.length_squared() > 0.0001:
+		var cap := maxf(current.length(), speed)
+		var blend := 1.0 - exp(-profile.air_accel * delta)
+		var steered := current.lerp(wish * cap, blend)
+		if steered.length() > cap + 0.001:
+			steered = steered.normalized() * cap
+		current = steered
+	velocity.x = current.x
+	velocity.z = current.z
+
+func _apply_vertical(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+		_jump_lock = maxf(0.0, _jump_lock - delta)
+		return
+	_jump_lock = maxf(0.0, _jump_lock - delta)
+	if _sliding or _jump_lock > 0.0 or not Input.is_action_just_pressed("jump"):
+		return
+	velocity.y = sqrt(2.0 * _gravity * profile.jump_height)
+	_jump_lock = profile.jump_lock_seconds
+
+func _try_begin_slide(sprint_held: bool, ads_blocking: bool) -> void:
+	if ads_blocking or _slide_cooldown > 0.0 or not is_on_floor():
+		return
+	if move_state != MoveState.SPRINTING and not sprint_held:
+		return
+	var horiz := Vector3(velocity.x, 0.0, velocity.z)
+	if horiz.length() < profile.slide_min_speed:
+		return
+	_sliding = true
+	_slide_time = 0.0
+	_slide_dir = horiz.normalized()
+
+func _apply_slide(delta: float, wish: Vector3) -> void:
+	_slide_time += delta
+	if wish.length_squared() > 0.0001:
+		var steer := 1.0 - exp(-profile.slide_steer * delta)
+		_slide_dir = _slide_dir.lerp(wish, steer).normalized()
+	var speed := Vector2(velocity.x, velocity.z).length() * exp(-profile.slide_friction * delta)
+	velocity.x = _slide_dir.x * speed
+	velocity.z = _slide_dir.z * speed
+	var finished := speed <= profile.slide_end_speed or _slide_time >= profile.slide_max_seconds or not is_on_floor()
+	if not finished:
+		return
+	_sliding = false
+	_slide_cooldown = profile.slide_cooldown
+
+func _update_stance(delta: float, crouch_held: bool) -> void:
+	var blocked := _stance > 0.02 and not _stand_clear()
+	var low := crouch_held or _sliding or blocked
+	var target := 1.0 if low else 0.0
+	var blend := 1.0 - exp(-profile.stance_speed * delta)
+	_stance = lerpf(_stance, target, blend)
+
+func _stand_clear() -> bool:
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return true
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = _stand_query
+	params.transform = global_transform.translated(Vector3(0.0, 0.05, 0.0))
+	params.exclude = [get_rid()]
+	params.collision_mask = collision_mask
+	return space.intersect_shape(params, 1).is_empty()
+
+func _apply_capsule() -> void:
+	var stand_h := profile.stand_height
+	var crouch_h := maxf(profile.crouch_height, profile.capsule_radius * 2.0 + 0.02)
+	var height := lerpf(stand_h, crouch_h, _stance)
+	_capsule.radius = profile.capsule_radius
+	_capsule.height = height
+	var bottom := -stand_h * 0.5
+	_collision.position.y = bottom + height * 0.5
+
+func _refresh_state(wish: Vector3, sprinting: bool) -> void:
+	var speed := Vector2(velocity.x, velocity.z).length()
+	if _sliding:
+		move_state = MoveState.SLIDING
+	elif not is_on_floor():
+		move_state = MoveState.JUMPING if velocity.y > 0.0 else MoveState.FALLING
+	elif _stance > 0.5:
+		move_state = MoveState.CROUCHING
+	elif sprinting and speed > profile.walk_speed + 0.35 and _stance < 0.25:
+		move_state = MoveState.SPRINTING
+	elif speed > 0.25 or wish.length_squared() > 0.0001:
+		move_state = MoveState.WALKING
+	else:
+		move_state = MoveState.IDLE
+
+func _update_camera_motion(delta: float) -> void:
+	var speed := Vector2(velocity.x, velocity.z).length()
+	var scale := 1.0
+	if _weapon.ads_blend() > 0.2:
+		scale *= profile.bob_ads_scale
+	if _stance > 0.4 or _sliding:
+		scale *= profile.bob_crouch_scale
+	if is_on_floor() and speed > 0.6 and not _sliding:
+		_bob_time += delta * profile.bob_frequency * (speed / profile.walk_speed)
+		_bob = sin(_bob_time) * profile.bob_amplitude * scale
+	else:
+		_bob = lerpf(_bob, 0.0, 1.0 - exp(-8.0 * delta))
+	_land_dip = lerpf(_land_dip, 0.0, 1.0 - exp(-10.0 * delta))
+	var eye := lerpf(profile.stand_eye, profile.crouch_eye, _stance)
+	_camera.position.y = eye + _bob - _land_dip
+	_camera.position.x = 0.0
 
 func _look_interactable() -> Interactable:
 	var space := get_world_3d().direct_space_state
@@ -174,6 +338,7 @@ func _ensure_input_map() -> void:
 	_bind_key("move_right", KEY_D)
 	_bind_key("jump", KEY_SPACE)
 	_bind_key("sprint", KEY_SHIFT)
+	_bind_key("crouch", KEY_CTRL)
 	_bind_key("reload", KEY_R)
 	_bind_key("interact", KEY_E)
 	_bind_key("weapon_pistol", KEY_1)
