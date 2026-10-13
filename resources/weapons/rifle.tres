@@ -7,7 +7,7 @@
 
 [resource]
 script = ExtResource("1_stats")
-display_name = "Rifle"
+display_name = "Assault Rifle"
 damage = 16
 range_meters = 55.0
 rounds_per_second = 9.0

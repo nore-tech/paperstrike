@@ -1,10 +1,18 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/levels/test_room.gd" id="1_room"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/characters/target_dummy.tscn" id="3_dummy"]
 [ext_resource type="PackedScene" path="res://scenes/ui/crosshair.tscn" id="4_crosshair"]
 [ext_resource type="PackedScene" path="res://scenes/ui/ammo_hud.tscn" id="5_ammo"]
+[ext_resource type="PackedScene" path="res://scenes/pickups/weapon_pickup.tscn" id="6_pickup"]
+[ext_resource type="Resource" path="res://resources/weapons/pistol.tres" id="7_pistol"]
+[ext_resource type="Resource" path="res://resources/weapons/rifle.tres" id="8_rifle"]
+[ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="9_shotgun"]
+[ext_resource type="PackedScene" path="res://scenes/pickups/ammo_crate.tscn" id="10_ammo_crate"]
+[ext_resource type="PackedScene" path="res://scenes/levels/respawn_targets_button.tscn" id="11_button"]
+[ext_resource type="PackedScene" path="res://scenes/ui/interaction_prompt.tscn" id="12_prompt"]
+[ext_resource type="Script" path="res://scripts/levels/range_target_manager.gd" id="13_manager"]
 
 [sub_resource type="Environment" id="Environment_room"]
 background_mode = 1
@@ -35,11 +43,52 @@ light_energy = 0.28
 shadow_enabled = false
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 14)
 
-[node name="TargetDummy" parent="." instance=ExtResource("3_dummy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -4)
+[node name="CloseLeft" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0.8, 8)
+
+[node name="CloseCenter" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 8)
+
+[node name="CloseRight" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.8, 8)
+
+[node name="MidLeft" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0.8, 2)
+
+[node name="MidRight" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.8, 2)
+
+[node name="FarLeft" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8, 0.8, -10)
+
+[node name="FarRight" parent="." instance=ExtResource("3_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8, 0.8, -10)
+
+[node name="PistolPickup" parent="." instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.9, 1.08, 12)
+stats = ExtResource("7_pistol")
+
+[node name="RiflePickup" parent="." instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2, 1.08, 12)
+stats = ExtResource("8_rifle")
+
+[node name="ShotgunPickup" parent="." instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 1.08, 12)
+stats = ExtResource("9_shotgun")
+
+[node name="AmmoCrate" parent="." instance=ExtResource("10_ammo_crate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.1, 0.28, 12)
+
+[node name="RespawnTargets" parent="." instance=ExtResource("11_button")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.3, 1.2, 13.3)
+
+[node name="RangeTargets" type="Node" parent="."]
+script = ExtResource("13_manager")
 
 [node name="Crosshair" parent="." instance=ExtResource("4_crosshair")]
 
 [node name="AmmoHud" parent="." instance=ExtResource("5_ammo")]
+
+[node name="InteractionPrompt" parent="." instance=ExtResource("12_prompt")]

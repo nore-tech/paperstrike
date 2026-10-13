@@ -67,4 +67,4 @@ Plays weapon, footstep, and UI cues named by resources. Other systems request a 
 
 ## What exists now
 
-The first playable slice, the paper presentation, and three hitscan weapons are in the tree. See `docs/CURRENT_STATE.md`. AI, objectives, and extraction are not implemented.
+The firing range is the test level: weapon pickups, a shared interact key, and a target reset that does not reload the scene. See `docs/CURRENT_STATE.md`. AI, objectives, and extraction are not implemented.

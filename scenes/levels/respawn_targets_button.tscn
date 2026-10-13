@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/interaction/respawn_targets_button.gd" id="1_script"]
+
+[sub_resource type="BoxShape3D" id="BoxShape_button"]
+size = Vector3(1.3, 0.55, 0.18)
+
+[sub_resource type="BoxMesh" id="BoxMesh_button"]
+size = Vector3(1.3, 0.55, 0.18)
+
+[sub_resource type="StandardMaterial3D" id="Mat_button"]
+albedo_color = Color(0.72, 0.28, 0.18, 1)
+roughness = 0.85
+
+[node name="RespawnTargets" type="StaticBody3D"]
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape_button")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_button")
+surface_material_override/0 = SubResource("Mat_button")
+
+[node name="Label" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.12)
+text = "RESPAWN TARGETS"
+font_size = 40
+pixel_size = 0.0035
+billboard = 1
+modulate = Color(0.98, 0.95, 0.9, 1)
+outline_size = 8

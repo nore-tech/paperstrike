@@ -21,12 +21,16 @@ var _applied_recoil_pitch := 0.0
 var _applied_recoil_yaw := 0.0
 var _capture_click := false
 var _trigger_was_down := false
+var _owned: Array[String] = []
+var _loadout: Dictionary = {}
+var _saved_ammo: Dictionary = {}
+const _INTERACT_RANGE := 2.6
 
 func _ready() -> void:
 	_ensure_input_map()
 	_hip_fov = _camera.fov
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_weapon.equip(PISTOL)
+	give_weapon(PISTOL)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
@@ -45,13 +49,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if event.is_action_pressed("weapon_pistol"):
-		_weapon.equip(PISTOL)
+		select_weapon(PISTOL)
 	elif event.is_action_pressed("weapon_rifle"):
-		_weapon.equip(RIFLE)
+		select_weapon(RIFLE)
 	elif event.is_action_pressed("weapon_shotgun"):
-		_weapon.equip(SHOTGUN)
+		select_weapon(SHOTGUN)
 	elif event.is_action_pressed("reload"):
 		_weapon.start_reload()
+	elif event.is_action_pressed("interact"):
+		var looked := _look_interactable()
+		if looked != null:
+			looked.interact(self)
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
@@ -81,6 +89,69 @@ func _process(delta: float) -> void:
 	_look_delta = Vector2.ZERO
 	_apply_recoil()
 	_camera.fov = lerpf(_hip_fov, _weapon.stats.ads_fov if _weapon.stats != null else _hip_fov, _weapon.ads_blend())
+	_update_prompt()
+
+func owns_weapon(stats: WeaponStats) -> bool:
+	return stats != null and stats.resource_path in _owned
+
+func give_weapon(stats: WeaponStats) -> void:
+	if stats == null:
+		return
+	var key := stats.resource_path
+	if key in _owned:
+		if _weapon.stats != null and _weapon.stats.resource_path == key:
+			_weapon.restock()
+		else:
+			_saved_ammo[key] = {"mag": stats.magazine_size, "reserve": stats.starting_reserve}
+		return
+	_owned.append(key)
+	_loadout[key] = stats
+	select_weapon(stats)
+
+func select_weapon(stats: WeaponStats) -> void:
+	if not owns_weapon(stats):
+		return
+	var key := stats.resource_path
+	if _weapon.stats != null and _weapon.stats.resource_path == key:
+		return
+	if _weapon.stats != null:
+		_saved_ammo[_weapon.stats.resource_path] = {"mag": _weapon.magazine, "reserve": _weapon.reserve}
+	_weapon.equip(stats)
+	if _saved_ammo.has(key):
+		_weapon.magazine = int(_saved_ammo[key].mag)
+		_weapon.reserve = int(_saved_ammo[key].reserve)
+		_weapon.ammo_changed.emit(_weapon.magazine, _weapon.reserve)
+
+func restock_equipped() -> void:
+	_weapon.restock()
+
+func _look_interactable() -> Interactable:
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return null
+	var origin := _camera.global_position
+	var aim := -_camera.global_transform.basis.z
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + aim * _INTERACT_RANGE)
+	query.exclude = [get_rid()]
+	var result := space.intersect_ray(query)
+	if result.is_empty():
+		return null
+	var node: Node = result.collider
+	while node != null:
+		if node is Interactable:
+			return node
+		node = node.get_parent()
+	return null
+
+func _update_prompt() -> void:
+	var prompt := get_tree().get_first_node_in_group("interaction_prompt")
+	if prompt == null or not prompt.has_method("set_prompt"):
+		return
+	var looked := _look_interactable()
+	if looked == null or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		prompt.set_prompt("")
+	else:
+		prompt.set_prompt(looked.interaction_text())
 
 func _apply_recoil() -> void:
 	var pitch_delta := _weapon.recoil_pitch - _applied_recoil_pitch
@@ -104,6 +175,7 @@ func _ensure_input_map() -> void:
 	_bind_key("jump", KEY_SPACE)
 	_bind_key("sprint", KEY_SHIFT)
 	_bind_key("reload", KEY_R)
+	_bind_key("interact", KEY_E)
 	_bind_key("weapon_pistol", KEY_1)
 	_bind_key("weapon_rifle", KEY_2)
 	_bind_key("weapon_shotgun", KEY_3)

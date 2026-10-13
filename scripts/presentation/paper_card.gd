@@ -14,6 +14,7 @@ extends Node3D
 var _face_material: StandardMaterial3D
 var _rest_color := Color.WHITE
 var _flash_tween: Tween
+var _collapse_tween: Tween
 
 func _ready() -> void:
 	_build()
@@ -87,6 +88,16 @@ func _restore_face() -> void:
 	_face_material.albedo_color = _rest_color
 	_face_material.emission_enabled = false
 
+func reset_presentation() -> void:
+	scale = Vector3.ONE
+	if _flash_tween != null:
+		_flash_tween.kill()
+	if _collapse_tween != null:
+		_collapse_tween.kill()
+	_restore_face()
+
 func _on_died() -> void:
-	var collapse := create_tween()
-	collapse.tween_property(self, "scale", Vector3.ZERO, 0.12)
+	if _collapse_tween != null:
+		_collapse_tween.kill()
+	_collapse_tween = create_tween()
+	_collapse_tween.tween_property(self, "scale", Vector3.ZERO, 0.12)

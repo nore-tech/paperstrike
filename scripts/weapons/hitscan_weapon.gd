@@ -50,6 +50,16 @@ func equip(next_stats: WeaponStats) -> void:
 	_tint_view()
 	ammo_changed.emit(magazine, reserve)
 
+func restock() -> void:
+	if stats == null:
+		return
+	magazine = stats.magazine_size
+	reserve = stats.starting_reserve
+	_reloading = false
+	_reload_left = 0.0
+	_empty_latched = false
+	ammo_changed.emit(magazine, reserve)
+
 func is_reloading() -> bool:
 	return _reloading
 
