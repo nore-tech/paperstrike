@@ -67,4 +67,4 @@ Plays weapon, footstep, and UI cues named by resources. Other systems request a 
 
 ## What exists now
 
-The firing range is the test level: weapon pickups, a shared interact key, a target reset that does not reload the scene, a player movement state machine driven by `MovementProfile`, and paper weapons whose iron sights, recoil, and aim time come from `WeaponStats`. See `docs/CURRENT_STATE.md`. AI, objectives, and extraction are not implemented.
+Main menu routes to The Cardboard Compound or the firing range via `GameSession`. The compound has cardboard geometry, navigation quads, encounter-spawned `CardboardEnemy` agents (`EnemyStats` variants), objectives, checkpoints, and extraction. Player health, pause/death/completion UI, and an SMG were added on top of the existing movement and hitscan weapon stack. See `docs/CURRENT_STATE.md` and `docs/MILESTONE_3_PROGRESS.md`.
