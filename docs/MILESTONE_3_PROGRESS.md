@@ -40,7 +40,9 @@ godot --headless --path . -s res://scripts/tools/milestone3_check.gd
 
 Result: `CHECK_OK milestone3` (menu, range damage, compound enemies, outer clear, checkpoint, death/respawn, extract complete).
 
-Not tested: interactive window playthrough, ADS feel in compound, full combat pacing by hand, audio mix by ear.
+GUI smoke ([GUI smoke test Paperstrike](bc-a0768cef-76c1-54e7-8c69-f554876b078f)): main menu → Play → compound spawn HUD → Esc pause → Resume → WASD move. Screenshots in `media/milestone-3/`.
+
+Not tested: full combat pacing by hand, ADS feel across all sections, audio mix by ear.
 
 ## Known limitations / remaining polish
 
