@@ -67,4 +67,4 @@ Plays weapon, footstep, and UI cues named by resources. Other systems request a 
 
 ## What exists now
 
-`project.godot` and these folders. No gameplay scenes, scripts, or `.tres` files. The next code phase, when it is asked for, is the player controller alone.
+The first playable slice is in the tree. See `docs/CURRENT_STATE.md` for the node map and what is still missing. AI, objectives, extraction, and the paper presentation are not implemented.

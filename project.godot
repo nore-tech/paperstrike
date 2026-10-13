@@ -1,5 +1,5 @@
 ; Engine configuration file.
-; Paperstrike — Godot 4.x. No main scene yet. Gameplay is not implemented.
+; Paperstrike — Godot 4.x. Main scene is the first-playable test room.
 
 config_version=5
 
@@ -7,6 +7,7 @@ config_version=5
 
 config/name="Paperstrike"
 config/description="A small single-player 2.5D first-person shooter with a paper and cardboard look."
+run/main_scene="res://scenes/levels/test_room.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 

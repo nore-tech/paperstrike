@@ -1,0 +1,91 @@
+extends CharacterBody3D
+
+## First-person body. Owns movement and look. Asks the equipped weapon to fire along the camera ray.
+
+@export var walk_speed := 5.0
+@export var sprint_speed := 8.0
+@export var jump_velocity := 4.5
+@export var mouse_sensitivity := 0.002
+
+@onready var _camera: Camera3D = $Camera3D
+@onready var _weapon: HitscanWeapon = $Camera3D/HitscanWeapon
+
+var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+
+func _ready() -> void:
+	_ensure_input_map()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_toggle_mouse_capture()
+		return
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		rotate_y(-event.relative.x * mouse_sensitivity)
+		_camera.rotate_x(-event.relative.y * mouse_sensitivity)
+		_camera.rotation.x = clampf(_camera.rotation.x, deg_to_rad(-89.0), deg_to_rad(89.0))
+	if event.is_action_pressed("fire"):
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		else:
+			_weapon.try_fire(_camera.global_position, -_camera.global_transform.basis.z, [get_rid()])
+
+func _physics_process(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+	elif Input.is_action_just_pressed("jump"):
+		velocity.y = jump_velocity
+
+	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+	var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	if direction:
+		velocity.x = direction.x * speed
+		velocity.z = direction.z * speed
+	else:
+		velocity.x = 0.0
+		velocity.z = 0.0
+	move_and_slide()
+
+func _toggle_mouse_capture() -> void:
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _ensure_input_map() -> void:
+	_bind_key("move_forward", KEY_W)
+	_bind_key("move_back", KEY_S)
+	_bind_key("move_left", KEY_A)
+	_bind_key("move_right", KEY_D)
+	_bind_key("jump", KEY_SPACE)
+	_bind_key("sprint", KEY_SHIFT)
+	_bind_mouse("fire", MOUSE_BUTTON_LEFT)
+
+func _bind_key(action: String, keycode: Key) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	var event := InputEventKey.new()
+	event.physical_keycode = keycode
+	if not _action_has_key(action, keycode):
+		InputMap.action_add_event(action, event)
+
+func _bind_mouse(action: String, button: MouseButton) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	var event := InputEventMouseButton.new()
+	event.button_index = button
+	if not _action_has_mouse(action, button):
+		InputMap.action_add_event(action, event)
+
+func _action_has_key(action: String, keycode: Key) -> bool:
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey and event.physical_keycode == keycode:
+			return true
+	return false
+
+func _action_has_mouse(action: String, button: MouseButton) -> bool:
+	for event in InputMap.action_get_events(action):
+		if event is InputEventMouseButton and event.button_index == button:
+			return true
+	return false

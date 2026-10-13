@@ -2,13 +2,15 @@
 
 A small single-player 2.5D first-person shooter. Gameplay, collision, movement, AI, and levels are 3D. Characters and props use 2D sprites and billboards, and the world is simple geometry, so it looks like paper and cardboard.
 
-Gameplay is not implemented yet. This repository is the Godot 4 project and the design docs.
+The current slice is a test room: walk, look, jump, sprint, and shoot a target dummy. There is no enemy AI.
 
-## Open it
+## Play
 
 1. Install [Godot 4.4](https://godotengine.org/download) or another Godot 4.x editor.
 2. Open this folder as a project (`project.godot`).
-3. There is no main scene yet. The editor should open on an empty project.
+3. Press Play. The main scene is `scenes/levels/test_room.tscn`.
+
+WASD moves, Shift sprints, Space jumps, and the mouse looks. Left click fires. Esc releases the mouse. The dummy ahead of the spawn point takes damage and disappears at zero health.
 
 ## Docs
 
