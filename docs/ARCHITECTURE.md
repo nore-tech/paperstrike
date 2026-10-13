@@ -67,4 +67,4 @@ Plays weapon, footstep, and UI cues named by resources. Other systems request a 
 
 ## What exists now
 
-The first playable slice and the paper presentation are in the tree. See `docs/CURRENT_STATE.md`. AI, objectives, and extraction are not implemented.
+The first playable slice, the paper presentation, and three hitscan weapons are in the tree. See `docs/CURRENT_STATE.md`. AI, objectives, and extraction are not implemented.

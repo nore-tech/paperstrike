@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/levels/test_room.gd" id="1_room"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/characters/target_dummy.tscn" id="3_dummy"]
 [ext_resource type="PackedScene" path="res://scenes/ui/crosshair.tscn" id="4_crosshair"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ammo_hud.tscn" id="5_ammo"]
 
 [sub_resource type="Environment" id="Environment_room"]
 background_mode = 1
@@ -40,3 +41,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -4)
 
 [node name="Crosshair" parent="." instance=ExtResource("4_crosshair")]
+
+[node name="AmmoHud" parent="." instance=ExtResource("5_ammo")]

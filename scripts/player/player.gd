@@ -1,6 +1,10 @@
 extends CharacterBody3D
 
-## First-person body. Owns movement and look. Asks the equipped weapon to fire along the camera ray.
+## First-person body. Owns movement and look. The equipped HitscanWeapon owns firing.
+
+const PISTOL := preload("res://resources/weapons/pistol.tres")
+const RIFLE := preload("res://resources/weapons/rifle.tres")
+const SHOTGUN := preload("res://resources/weapons/shotgun.tres")
 
 @export var walk_speed := 5.0
 @export var sprint_speed := 8.0
@@ -11,24 +15,43 @@ extends CharacterBody3D
 @onready var _weapon: HitscanWeapon = $Camera3D/HitscanWeapon
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var _hip_fov := 75.0
+var _look_delta := Vector2.ZERO
+var _applied_recoil_pitch := 0.0
+var _applied_recoil_yaw := 0.0
+var _capture_click := false
+var _trigger_was_down := false
 
 func _ready() -> void:
 	_ensure_input_map()
+	_hip_fov = _camera.fov
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_weapon.equip(PISTOL)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		_toggle_mouse_capture()
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * mouse_sensitivity)
-		_camera.rotate_x(-event.relative.y * mouse_sensitivity)
+		var ads := _weapon.ads_blend()
+		var sensitivity := mouse_sensitivity * lerpf(1.0, 0.62, ads)
+		rotate_y(-event.relative.x * sensitivity)
+		_camera.rotate_x(-event.relative.y * sensitivity)
 		_camera.rotation.x = clampf(_camera.rotation.x, deg_to_rad(-89.0), deg_to_rad(89.0))
-	if event.is_action_pressed("fire"):
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		else:
-			_weapon.try_fire(_camera.global_position, -_camera.global_transform.basis.z, [get_rid()])
+		_look_delta += event.relative
+	if event.is_action_pressed("fire") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_capture_click = true
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	if event.is_action_pressed("weapon_pistol"):
+		_weapon.equip(PISTOL)
+	elif event.is_action_pressed("weapon_rifle"):
+		_weapon.equip(RIFLE)
+	elif event.is_action_pressed("weapon_shotgun"):
+		_weapon.equip(SHOTGUN)
+	elif event.is_action_pressed("reload"):
+		_weapon.start_reload()
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
@@ -38,7 +61,7 @@ func _physics_process(delta: float) -> void:
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-	var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	var speed := sprint_speed if Input.is_action_pressed("sprint") and _weapon.ads_blend() < 0.2 else walk_speed
 	if direction:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed
@@ -46,6 +69,26 @@ func _physics_process(delta: float) -> void:
 		velocity.x = 0.0
 		velocity.z = 0.0
 	move_and_slide()
+
+func _process(delta: float) -> void:
+	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	var trigger_down := captured and not _capture_click and Input.is_action_pressed("fire")
+	var trigger_just_pressed := trigger_down and not _trigger_was_down
+	_trigger_was_down = trigger_down
+	_capture_click = false
+	var ads_held := captured and Input.is_action_pressed("aim")
+	_weapon.update(delta, trigger_down, trigger_just_pressed, ads_held, _camera.global_position, -_camera.global_transform.basis.z, [get_rid()], velocity, is_on_floor(), _look_delta)
+	_look_delta = Vector2.ZERO
+	_apply_recoil()
+	_camera.fov = lerpf(_hip_fov, _weapon.stats.ads_fov if _weapon.stats != null else _hip_fov, _weapon.ads_blend())
+
+func _apply_recoil() -> void:
+	var pitch_delta := _weapon.recoil_pitch - _applied_recoil_pitch
+	var yaw_delta := _weapon.recoil_yaw - _applied_recoil_yaw
+	_camera.rotation.x = clampf(_camera.rotation.x + pitch_delta, deg_to_rad(-89.0), deg_to_rad(89.0))
+	rotate_y(yaw_delta)
+	_applied_recoil_pitch = _weapon.recoil_pitch
+	_applied_recoil_yaw = _weapon.recoil_yaw
 
 func _toggle_mouse_capture() -> void:
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -60,7 +103,12 @@ func _ensure_input_map() -> void:
 	_bind_key("move_right", KEY_D)
 	_bind_key("jump", KEY_SPACE)
 	_bind_key("sprint", KEY_SHIFT)
+	_bind_key("reload", KEY_R)
+	_bind_key("weapon_pistol", KEY_1)
+	_bind_key("weapon_rifle", KEY_2)
+	_bind_key("weapon_shotgun", KEY_3)
 	_bind_mouse("fire", MOUSE_BUTTON_LEFT)
+	_bind_mouse("aim", MOUSE_BUTTON_RIGHT)
 
 func _bind_key(action: String, keycode: Key) -> void:
 	if not InputMap.has_action(action):

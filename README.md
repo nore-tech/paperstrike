@@ -10,7 +10,7 @@ The current slice is a test room: walk, look, jump, sprint, and shoot a target d
 2. Open this folder as a project (`project.godot`).
 3. Press Play. The main scene is `scenes/levels/test_room.tscn`.
 
-WASD moves, Shift sprints, Space jumps, and the mouse looks. Left click fires. Esc releases the mouse. The dummy ahead of the spawn point is a flat paper card with a 3D hit volume. It flashes, sheds a paper scrap, and disappears at zero health.
+WASD moves, Shift sprints, Space jumps, and the mouse looks. Left click fires. Right click aims. R reloads. Keys 1, 2, and 3 select the pistol, rifle, and shotgun. Esc releases the mouse. The dummy ahead of the spawn point is a flat paper card with a 3D hit volume. It flashes, sheds a paper scrap, and disappears at zero health.
 
 ## Docs
 

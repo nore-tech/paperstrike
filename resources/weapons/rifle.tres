@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="WeaponStats" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon_stats.gd" id="1_stats"]
+[ext_resource type="AudioStream" path="res://audio/sfx/rifle_fire.wav" id="2_fire"]
+[ext_resource type="AudioStream" path="res://audio/sfx/reload.wav" id="3_reload"]
+[ext_resource type="AudioStream" path="res://audio/sfx/empty.wav" id="4_empty"]
+
+[resource]
+script = ExtResource("1_stats")
+display_name = "Rifle"
+damage = 16
+range_meters = 55.0
+rounds_per_second = 9.0
+fire_mode = 1
+magazine_size = 30
+starting_reserve = 90
+reload_seconds = 1.7
+recoil_pitch_degrees = 0.55
+recoil_yaw_degrees = 0.28
+recoil_recovery = 12.0
+hip_spread_degrees = 2.4
+ads_spread_degrees = 0.35
+pellet_count = 1
+ads_fov = 50.0
+ads_time = 0.2
+sway_amount = 0.02
+bob_amount = 0.02
+view_color = Color(0.22, 0.24, 0.2, 1)
+fire_sound = ExtResource("2_fire")
+reload_sound = ExtResource("3_reload")
+empty_sound = ExtResource("4_empty")

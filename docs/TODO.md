@@ -1,11 +1,11 @@
 # Todo
 
-The paper look is on the test slice. Later phases stay pending until someone asks for them.
+Three test weapons are in. Later phases stay pending until someone asks for them.
 
 - [x] Godot 4 project, directory layout, and design docs
-- [x] First playable prototype: test room, first-person move and look, one hitscan sidearm, target dummy
+- [x] First playable prototype: test room, first-person move and look, hitscan shooting, target dummy
 - [x] Paper and cardboard presentation on the test room, dummy, muzzle, and hit scraps
-- [ ] More weapons, reload, and ammo
+- [x] Pistol, rifle, and shotgun: fire modes, magazines, reserve ammo, reload, recoil, spread, sights, sway, ammo HUD, placeholder audio
 - [ ] Enemy AI
 - [ ] Objective and extraction level
-- [ ] HUD beyond the crosshair, and audio
+- [ ] Final weapon art, HUD polish, and audio beyond the placeholders

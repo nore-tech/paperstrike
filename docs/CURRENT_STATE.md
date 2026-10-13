@@ -1,62 +1,63 @@
 # Current state
 
-Paperstrike has a first playable prototype with a paper and cardboard look. Launch the game, walk the test room, shoot the billboard dummy, and it dies. Enemy AI is not implemented.
+Paperstrike launches into a paper test room with a first-person controller and three hitscan weapons. Enemy AI, inventory, and the objective loop are not implemented.
 
 ## Repo
 
 - GitHub: https://github.com/nore-tech/paperstrike
 - Account: `nore-tech`
 - Branch: `main`
-- Engine: Godot 4.x. `project.godot` targets feature `4.4` and Forward Plus. Main scene: `scenes/levels/test_room.tscn`.
+- Engine: Godot 4.x, feature `4.4`, Forward Plus. Main scene: `scenes/levels/test_room.tscn`.
 
-## What this phase added
+## Weapons
 
-Presentation is separate from hit detection.
+One `HitscanWeapon` node reads a `WeaponStats` resource. There is no second gun script.
 
-- `PaperMaterial` resources tint a shared generated fiber texture: `resources/presentation/paper_floor.tres`, `paper_wall.tres`, `cardboard_edge.tres`.
-- `PaperBlock` builds each room surface as a cardboard box plus one inset paper face, so the cut edge stays visible. Collision size is unchanged.
-- `PaperCard` is a reusable yaw-billboard cutout: a thicker cardboard shell and a generated figure on a quad. It listens for `damaged` and `died`. It does not know about weapons.
-- The target dummy keeps its `BoxShape3D` (`0.7 x 1.6 x 0.35`). The old solid `Mesh` is gone. Shots still hit that volume, including from the side, while the card reads flat.
-- `PaperImpact` is a short paper-scrap burst. The test room spawns it from `hit_registered`. It is not part of damage.
-- The sidearm muzzle is a paper burst node plus a warm, short-range light. The gun body is still a box, recolored as dark cardboard with a lighter edge.
-- Lighting is a warm shadowed sun, a dim cool fill, and warm ambient light.
+`Player` calls `HitscanWeapon.update` each frame with the camera ray, trigger, aim button, velocity, and mouse delta. It adds the weapon's recoil pitch to the camera and recoil yaw to the body, then lets that recoil settle back. Aim down sights lowers FOV, slows look, moves the viewmodel inward, and tightens spread. Sprint is suppressed while aiming.
 
-## Node and script relationships
+The weapon owns the magazine, reserve ammo, fire rate, semi or auto mode, reload timer, recoil, spread, sway, and bob. A shot decrements the magazine, plays the muzzle flash, plays `fire_sound` when one is set, and casts one or more rays. Each hit still emits `hit_registered` and calls `take_damage`. The room turns that signal into a paper scrap. Spread is a random cone, wider from the hip and while moving, tighter in sights. Recovery lerps recoil toward zero.
 
-`TestRoom` builds the floor and walls, then connects `Player/Camera3D/HitscanWeapon.hit_registered` to spawn `scenes/presentation/paper_impact.tscn`.
+Reload (`R`) fills the magazine from reserve after `reload_seconds`. It does not load one shell at a time. An empty trigger plays `empty_sound` and does not fire.
 
-`TargetDummy` owns health, `take_damage`, the collision shape, `damaged`, and `died`. At zero health it turns collision off and frees itself after 0.12 seconds. `PaperCard` is a child and only reacts to those signals (flash, then scale to zero).
+Keys 1, 2, and 3 call `equip` on the pistol, rifle, and shotgun resources. That is a test switch, not an inventory.
 
-`HitscanWeapon.try_fire` is unchanged in behavior. The hit signal now also carries the surface normal so a scrap can sit on the surface. The player script was not changed. Shots still start at the camera.
+| Weapon | Mode | Damage | Rate | Mag / reserve | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Pistol | Semi | 34 | 4 / s | 10 / 40 | Tight hip spread |
+| Rifle | Auto | 16 | 9 / s | 30 / 90 | Holds the trigger |
+| Shotgun | Semi | 12 × 8 pellets | 1.1 / s | 6 / 24 | Short range, wide cone |
 
-`PaperTextures` generates the fiber image and the figure. Nothing in gameplay reads those textures.
+Placeholder noises live in `audio/sfx/`. The viewmodel is still a cardboard box, tinted per weapon. `AmmoHud` shows the name, mode, magazine, reserve, and reloading.
+
+## What stayed
+
+The dummy is a `PaperCard` on a `BoxShape3D`. Movement is still WASD, mouse look, gravity, jump, and sprint. Impacts and the paper room are unchanged.
 
 ## Validation
 
-Godot 4.4.1 stable (`4.4.1.stable.official.49a5bc7b6`) at `/tmp/godot-dl/Godot_v4.4.1-stable_linux.x86_64`.
+Godot 4.4.1 stable (`4.4.1.stable.official.49a5bc7b6`).
 
-These exited 0 with no script errors:
+Exited 0 with no script errors:
 
 - `--headless --path . --import --quit`
 - `--headless --path . --quit-after 30`
 
-A headless SceneTree script loaded the room, confirmed the dummy still has a `BoxShape3D`, has a `PaperCard`, and no longer has `Mesh`. One camera ray left health at 66 and spawned a `paper_impact`. Three rays left health at 0 and spawned 3 impacts. That script was not committed.
+A headless script, not committed, loaded the room and drove `HitscanWeapon.update` directly:
+
+- Pistol: one centered shot left the dummy at 66 health and the magazine at 9. Holding the trigger did not fire again. A later press did. Recoil rose, then recovered after 2 seconds. Aim blend reached 1. Reload restored the magazine to 10 and reserve to 38.
+- Rifle: holding fire for twelve 0.05 s steps left the magazine at 26 (four shots). One more 0.2 s tick fired once more, to 25.
+- Shotgun: one close shot spent one shell, spawned at least four paper impacts, and lowered dummy health. After the magazine was emptied, another press did not change health.
 
 This was not a manual playthrough in a window.
 
 ## Known limitations
 
-- The figure, fiber, and scraps are generated placeholders, not finished art.
-- The firearm is still a box, not a paper viewmodel.
-- Impacts fade in about 0.2 seconds. They do not leave a hole.
-- The card yaws toward the camera and stays upright. It does not pitch.
-- No ammo, reload, recoil, enemy AI, player health, objectives, extraction, or audio.
-- The HUD is still only the crosshair.
-
-## Do not start next
-
-Enemy AI and the objective loop are not this phase.
+- No inventory, weapon mods, penetration, or bullet drop.
+- Reload is one timer, not a per-shell shotgun load.
+- Spread is an even random cone.
+- Gun art and sounds are placeholders.
+- No enemy AI, objectives, extraction, or player health.
 
 ## Recommended next
 
-When asked: one enemy that moves and shoots, reusing `PaperCard` for its picture and a separate 3D body for hits.
+When asked: one enemy that can fight, using `PaperCard` for the picture and a separate 3D body for hits.

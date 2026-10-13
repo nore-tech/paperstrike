@@ -22,6 +22,9 @@ func _ready() -> void:
 	var weapon := get_node_or_null("Player/Camera3D/HitscanWeapon")
 	if weapon != null and weapon.has_signal("hit_registered"):
 		weapon.hit_registered.connect(_on_hit_registered)
+	var hud := get_node_or_null("AmmoHud")
+	if hud != null and weapon != null:
+		hud.bind(weapon)
 
 func _add_block(size: Vector3, position: Vector3, face_normal: Vector3, face: PaperMaterial) -> void:
 	var block := PaperBlock.build(size, face, _edge, face_normal)
