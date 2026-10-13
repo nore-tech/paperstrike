@@ -1,6 +1,6 @@
 # Current state
 
-The test room is now the firing range. The player spawns with the pistol. The assault rifle and shotgun are physical pickups. Stationary dummies sit at three distances, and a button resets them without reloading the scene. Movement is a state machine on the player: idle, walking, sprinting, crouching, sliding, jumping, and falling. Enemy AI, objectives, and extraction are not implemented. Phase 2B has not been started.
+The test room is now the firing range. The player spawns with the pistol. The assault rifle and shotgun are physical pickups. Stationary dummies sit at three distances, and a button resets them without reloading the scene. Movement is a state machine on the player: idle, walking, sprinting, crouching, prone, sliding, jumping, and falling. Weapons are layered paper meshes with iron sights, aim-down-sights alignment, and split camera/visual recoil. Enemy AI, objectives, and extraction are not implemented. The next phase has not been started.
 
 ## Repo
 
@@ -13,17 +13,29 @@ The test room is now the firing range. The player spawns with the pistol. The as
 
 `MovementProfile` (`resources/player/movement_profile.tres`, script `scripts/player/movement_profile.gd`) holds the speeds, acceleration, jump height, capsule sizes, slide friction, and camera bob. `Player` is the only reader. Change that resource to retune movement. Do not copy the numbers into other scripts.
 
-Horizontal speed eases toward the wish direction with `1 - exp(-rate * delta)`, so the step does not depend on the frame rate. Diagonals come from `Input.get_vector`, which is already normalized. Releasing the keys eases speed back to zero. In the air, steering is weaker and does not raise speed above the faster of the current speed and the ground target.
+Horizontal speed eases toward the wish direction with `1 - exp(-rate * delta)`. Ground acceleration is fast on purpose. Diagonals come from `Input.get_vector`. Releasing the keys eases speed back to zero. In the air, steering is lighter and does not raise speed above the faster of the current speed and the ground target. There is no stamina.
 
-Sprint is Left Shift, and it is cancelled while crouching or while aim blend is at least 0.2. Firing and reload are unchanged.
+Sprint is Left Shift. It stops while crouching, prone, or while aim blend is at least 0.2. Firing and reload keep working.
 
-Crouch is hold Left Ctrl. The capsule shortens around the feet, and the camera eases down inside that capsule. Overhead clearance is a standing-capsule shape query. If it hits, the player stays crouched.
+Crouch is hold Left Ctrl. The capsule shortens around the feet, and the camera eases down inside it. A standing-capsule query blocks standing up into a ceiling.
 
-Slide is Left Ctrl while sprinting and at least `slide_min_speed`. It keeps the current horizontal velocity, steers a little, and bleeds speed with `slide_friction` until `slide_end_speed` or `slide_max_seconds`. The crouched capsule is what can pass under a gap. Another slide waits out `slide_cooldown` and needs a real sprint again, so holding crouch cannot chain slides. Jump does not start during a slide. When the slide ends, the player stays down if Ctrl is held or the ceiling is blocked, and stands otherwise.
+Prone is Z, a toggle, and its own state. The collision becomes a low box (`prone_height`, `prone_width`, `prone_length`) so the body is actually shorter, not just a lower camera. Crawl speed is `prone_speed`. Sprint and jump do not run while prone. Going prone is refused when that box does not fit. Z again stands if the ceiling is clear, or settles into a crouch when a crouch fits and a stand does not. Holding Ctrl while prone also returns to a crouch when the crouch fits.
+
+Slide is Left Ctrl while sprinting and at least `slide_min_speed`. Entry multiplies current speed by `slide_entry_boost` (default 1.1) and caps it at 115% of sprint speed, so the slide starts faster than the sprint instead of braking. Friction then eases it down across about a second (`slide_friction`, `slide_max_seconds`). Steering uses `slide_steer`. Look is never locked. Another slide waits out `slide_cooldown` and needs a sprint again. Jump does not start during a slide. When it ends, leftover horizontal speed stays. Shift still held, and the ceiling clear, goes straight back into a sprint. Ctrl held, or a ceiling, stays crouched.
 
 Jump is Space, from walk, sprint, or crouch, only while grounded, with a short lock so the floor cannot double-fire it. Jump speed is `sqrt(2 * gravity * jump_height)`.
 
-The camera keeps mouse look and the vertical clamp. A small vertical bob is added while walking and scaled down by `bob_ads_scale` and `bob_crouch_scale`. A short landing dip plays after a hard landing. The weapon stays parented to the camera, and its own viewmodel bob is unchanged.
+The camera keeps mouse look and the vertical clamp. A small vertical bob is added while walking, reduced by `bob_ads_scale`, `bob_crouch_scale`, and further while prone. A short landing dip plays after a hard landing. The weapon stays parented to the camera.
+
+## Aim, sights, and recoil
+
+`PaperWeaponView` builds the pistol, rifle, and shotgun from layered boxes on the existing paper material: receiver, barrel, grip, magazine or tube, stock where it belongs, and a rear notch plus a front post. `WeaponStats.form` picks the mesh. Hip position, hip rotation, ADS FOV, ADS time, and `ads_eye_distance` are on that same resource.
+
+Aim is right click. The viewmodel pose is not a shove toward the camera. `HitscanWeapon` reads the `RearSight` and `FrontSight` markers and solves a basis so that sight line lies on the camera forward axis, with the rear sight `ads_eye_distance` in front of the eye. Hip and ADS poses blend over `ads_time`. The hip-fire crosshair hides once aim blend passes 0.45. Hitscan rays still leave the camera along its look direction, which is the same line as the sights when recoil and sway are zero. Spread still applies.
+
+Firing adds two recoils. A fraction `camera_recover` springs the view back. The rest is added to the camera and stays, so automatic fire climbs and the mouse has to pull it down. The gun mesh also kicks backward and pitches up, then `visual_recovery` eases it home. `ads_recoil_scale` reduces both while aiming. Per-weapon values live on the three `WeaponStats` resources. Yaw alternates sign instead of being fully random.
+
+Stationary prone cuts weapon sway. ADS cuts it further. Shooting, reloading, weapon switching, and pickups are unchanged by the stance.
 
 ## Interaction
 
@@ -133,7 +145,14 @@ A headless script, not committed, loaded the range and printed `CHECK_OK firing 
 - 0.35 s later that dummy is still in the tree and its card scale is not collapsed.
 - A seeded pistol shot from `(0, 1.2, 10)` aimed down the lane left the close center dummy at 66 health before that kill.
 
-A second headless script, also not committed, printed `CHECK_OK movement` against the same range:
+A later headless script, not committed, printed `CHECK_OK handling` after the slide, prone, sight, and recoil pass:
+
+- A sprint into Ctrl starts the slide above the sprint speed and still above 72% of sprint speed 0.4 s later. The slide ends with speed left, and holding Shift returns to sprint.
+- Z enters prone, shortens the collider, lowers the camera, and refuses sprint speed. A low ceiling blocks standing. A wall close in front refuses prone. Z stands back up when the space is clear.
+- With aim held, the pistol, rifle, and shotgun sight markers sit within 2.5 cm of the camera forward ray. The crosshair hides.
+- One pistol shot sets visual pitch, held camera recoil, and a camera kick. A seeded shot still damages the close dummy.
+
+A headless script before that, also not committed, printed `CHECK_OK movement` against the same range:
 
 - Walk speed eases in, then returns to idle after the keys are released. Diagonal speed stays near the forward speed. Reversing direction reaches a positive Z velocity within 0.35 s.
 - Sprint exceeds the walk speed and stays at or under the sprint speed. Holding aim brings it back down to a walk.
@@ -156,8 +175,12 @@ This was not a manual playthrough in a window. Two physics frame rates were not 
 - Targets do not move or shoot.
 - No inventory grid, weapon mods, penetration, or bullet drop. Reload is one timer. Spread is an even cone. Gun art and sounds are placeholders.
 - No enemy AI, objectives, extraction, or player health.
-- Jumping is disabled during a slide. There is no coyote time and no air jump.
-- Slide steer is light. A slide does not add speed on top of the sprint you already had.
+- Jumping is disabled during a slide and while prone. There is no coyote time and no air jump.
+- Part of each shot's camera kick stays until the player pulls the mouse down. That is intentional.
+- Sight alignment was measured in a headless run, not judged by eye in a window. The guns are built from boxes, not finished art.
+- Headless play does not keep the mouse captured, so the handling script confirmed aim with the aim action held and confirmed the recoil kick by calling the weapon update directly.
+- A slide adds a capped entry boost, then eases off. It does not keep climbing if you chain slides.
+- Gun art and sounds are still placeholders in the sense that the meshes are procedural boxes. They are no longer a single crate.
 - Camera bob is only vertical and small. The viewmodel still has its own bob, so the gun is not perfectly still.
 - Crouch and slide clearance is the shortened capsule. Very thin gaps under `crouch_height` (1.05 m) will not pass.
 - Head bob while crouched or aiming is scaled in code. The headless check measured walking bob and the landing dip, not a separate crouch-bob sample.

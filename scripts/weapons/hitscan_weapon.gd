@@ -19,6 +19,8 @@ var magazine := 0
 var reserve := 0
 var recoil_pitch := 0.0
 var recoil_yaw := 0.0
+var recoil_hold_pitch := 0.0
+var recoil_hold_yaw := 0.0
 
 var _cooldown := 0.0
 var _reloading := false
@@ -30,6 +32,14 @@ var _bob_time := 0.0
 var _sway_pitch := 0.0
 var _sway_yaw := 0.0
 var _move_speed := 0.0
+var _visual_kick := 0.0
+var _visual_pitch := 0.0
+var _visual_yaw := 0.0
+var _yaw_sign := 1.0
+var _handling_scale := 1.0
+var _rear_local := Vector3.ZERO
+var _front_local := Vector3.ZERO
+var _muzzle_local := Vector3(0, 0, -0.4)
 
 func _ready() -> void:
 	_rng.randomize()
@@ -46,9 +56,28 @@ func equip(next_stats: WeaponStats) -> void:
 	_ads = 0.0
 	recoil_pitch = 0.0
 	recoil_yaw = 0.0
+	recoil_hold_pitch = 0.0
+	recoil_hold_yaw = 0.0
+	_visual_kick = 0.0
+	_visual_pitch = 0.0
+	_visual_yaw = 0.0
 	_empty_latched = false
-	_tint_view()
+	_rebuild_view()
 	ammo_changed.emit(magazine, reserve)
+
+func set_handling(scale: float) -> void:
+	_handling_scale = scale
+
+func visual_pitch() -> float:
+	return _visual_pitch
+
+func sight_ray_error() -> float:
+	var rear := _view.get_node_or_null("Art/RearSight") as Node3D
+	var front := _view.get_node_or_null("Art/FrontSight") as Node3D
+	var camera := get_parent() as Camera3D
+	if rear == null or front == null or camera == null:
+		return 99.0
+	return maxf(_ray_miss(camera, rear.global_position), _ray_miss(camera, front.global_position))
 
 func restock() -> void:
 	if stats == null:
@@ -144,14 +173,27 @@ func _spread_direction(aim: Vector3) -> Vector3:
 	return (aim + side * tan(yaw) + raised * tan(pitch)).normalized()
 
 func _add_recoil() -> void:
-	recoil_pitch += deg_to_rad(stats.recoil_pitch_degrees)
-	var yaw_kick := deg_to_rad(stats.recoil_yaw_degrees)
-	recoil_yaw += _rng.randf_range(-yaw_kick, yaw_kick)
+	var scale := lerpf(1.0, stats.ads_recoil_scale, _ads)
+	var pitch := deg_to_rad(stats.recoil_pitch_degrees) * scale
+	_yaw_sign *= -1.0
+	var yaw := deg_to_rad(stats.recoil_yaw_degrees) * scale * _yaw_sign
+	var recover := clampf(stats.camera_recover, 0.0, 1.0)
+	recoil_pitch += pitch * recover
+	recoil_yaw += yaw * recover
+	recoil_hold_pitch += pitch * (1.0 - recover)
+	recoil_hold_yaw += yaw * (1.0 - recover)
+	_visual_kick += stats.visual_kick * scale
+	_visual_pitch += deg_to_rad(stats.visual_pitch_degrees) * scale
+	_visual_yaw += deg_to_rad(stats.visual_yaw_degrees) * scale * _yaw_sign
 
 func _update_recoil(delta: float) -> void:
 	var blend := 1.0 - exp(-stats.recoil_recovery * delta)
 	recoil_pitch = lerpf(recoil_pitch, 0.0, blend)
 	recoil_yaw = lerpf(recoil_yaw, 0.0, blend)
+	var visual := 1.0 - exp(-stats.visual_recovery * delta)
+	_visual_kick = lerpf(_visual_kick, 0.0, visual)
+	_visual_pitch = lerpf(_visual_pitch, 0.0, visual)
+	_visual_yaw = lerpf(_visual_yaw, 0.0, visual)
 
 func _update_ads(delta: float, ads_held: bool) -> void:
 	var target := 1.0 if ads_held else 0.0
@@ -173,8 +215,8 @@ func _update_reload(delta: float) -> void:
 	ammo_changed.emit(magazine, reserve)
 
 func _update_view(delta: float, look_delta: Vector2, on_floor: bool) -> void:
-	var ads_scale := 1.0 - _ads * 0.75
-	var sway := stats.sway_amount * ads_scale
+	var steady := (1.0 - _ads * 0.9) * _handling_scale
+	var sway := stats.sway_amount * steady
 	var target_yaw := -look_delta.x * sway * 0.015
 	var target_pitch := look_delta.y * sway * 0.015
 	var follow := 1.0 - exp(-10.0 * delta)
@@ -183,13 +225,62 @@ func _update_view(delta: float, look_delta: Vector2, on_floor: bool) -> void:
 	var bob := Vector3.ZERO
 	if on_floor and _move_speed > 0.4:
 		_bob_time += delta * _move_speed * 1.6
-		var amount := stats.bob_amount * ads_scale
+		var amount := stats.bob_amount * steady
 		bob = Vector3(sin(_bob_time * 0.5) * amount * 0.6, absf(sin(_bob_time)) * amount, 0.0)
 	else:
-		_bob_time = 0.0
-	var ads_pose := Vector3(-0.16, 0.07, 0.1)
-	_view.position = ads_pose * _ads + bob + Vector3(_sway_yaw, _sway_pitch, 0.0)
-	_view.rotation = Vector3(_sway_pitch * 0.6, _sway_yaw * 0.6, _sway_yaw * 0.25)
+		_bob_time = lerpf(_bob_time, 0.0, follow)
+	var hip_basis := Basis.from_euler(Vector3(
+		deg_to_rad(stats.hip_rotation_degrees.x),
+		deg_to_rad(stats.hip_rotation_degrees.y),
+		deg_to_rad(stats.hip_rotation_degrees.z)
+	))
+	var ads_basis := _sight_basis()
+	var basis := hip_basis.slerp(ads_basis, _ads)
+	var ads_position := Vector3(0.0, 0.0, -stats.ads_eye_distance) - ads_basis * _rear_local
+	var position := stats.hip_position.lerp(ads_position, _ads)
+	position += bob + Vector3(_sway_yaw, _sway_pitch, 0.0)
+	position += basis * Vector3(0.0, 0.0, _visual_kick)
+	basis = basis * Basis.from_euler(Vector3(_visual_pitch, _visual_yaw, 0.0))
+	_view.position = position
+	_view.basis = basis
+
+func _sight_basis() -> Basis:
+	var direction := _front_local - _rear_local
+	if direction.length_squared() < 0.0001:
+		return Basis.IDENTITY
+	direction = direction.normalized()
+	var target := Vector3(0, 0, -1)
+	if direction.dot(target) > 0.999:
+		return Basis.IDENTITY
+	return Basis(Quaternion(direction, target)).orthonormalized()
+
+func _rebuild_view() -> void:
+	if stats == null or _view == null:
+		return
+	PaperWeaponView.build(_view, stats)
+	var rear := _view.get_node_or_null("Art/RearSight") as Node3D
+	var front := _view.get_node_or_null("Art/FrontSight") as Node3D
+	var muzzle := _view.get_node_or_null("Art/MuzzlePoint") as Node3D
+	_rear_local = _art_point(rear)
+	_front_local = _art_point(front)
+	_muzzle_local = _art_point(muzzle)
+	if _muzzle_flash != null:
+		_muzzle_flash.position = _muzzle_local
+	if _muzzle_light != null:
+		_muzzle_light.position = _muzzle_local
+
+func _art_point(marker: Node3D) -> Vector3:
+	if marker == null:
+		return Vector3.ZERO
+	var art := marker.get_parent() as Node3D
+	if art == null:
+		return marker.position
+	return art.position + art.basis * marker.position
+
+func _ray_miss(camera: Camera3D, point: Vector3) -> float:
+	var forward := -camera.global_transform.basis.z
+	var offset := point - camera.global_position
+	return offset.cross(forward).length()
 
 func _show_muzzle_flash() -> void:
 	_muzzle_flash.visible = true
@@ -209,18 +300,3 @@ func _play(stream: AudioStream) -> void:
 	_audio.stream = stream
 	_audio.play()
 
-func _tint_view() -> void:
-	var body := _view.get_node_or_null("Body") as MeshInstance3D
-	var edge := _view.get_node_or_null("Edge") as MeshInstance3D
-	if body != null:
-		var material := StandardMaterial3D.new()
-		material.albedo_color = stats.view_color
-		material.roughness = 0.92
-		body.set_surface_override_material(0, material)
-		body.scale = Vector3(1.0, 1.0, 1.0 if stats.pellet_count <= 1 else 1.25)
-	if edge != null:
-		var material := StandardMaterial3D.new()
-		material.albedo_color = stats.view_color.lightened(0.25)
-		material.roughness = 0.9
-		edge.set_surface_override_material(0, material)
-		edge.scale = body.scale if body != null else Vector3.ONE

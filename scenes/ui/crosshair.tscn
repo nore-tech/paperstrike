@@ -1,6 +1,6 @@
 [gd_scene load_steps=1 format=3]
 
-[node name="Crosshair" type="CanvasLayer"]
+[node name="Crosshair" type="CanvasLayer" groups=["crosshair"]]
 
 [node name="Root" type="Control" parent="."]
 layout_mode = 3

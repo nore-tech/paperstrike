@@ -67,4 +67,4 @@ Plays weapon, footstep, and UI cues named by resources. Other systems request a 
 
 ## What exists now
 
-The firing range is the test level: weapon pickups, a shared interact key, a target reset that does not reload the scene, and a player movement state machine driven by `MovementProfile`. See `docs/CURRENT_STATE.md`. AI, objectives, and extraction are not implemented.
+The firing range is the test level: weapon pickups, a shared interact key, a target reset that does not reload the scene, a player movement state machine driven by `MovementProfile`, and paper weapons whose iron sights, recoil, and aim time come from `WeaponStats`. See `docs/CURRENT_STATE.md`. AI, objectives, and extraction are not implemented.

@@ -1,6 +1,6 @@
 # Todo
 
-The firing range is the weapon and damage test level. Movement tuning lives in `resources/player/movement_profile.tres`. Phase 2B has not been started. Later phases stay pending until someone asks for them.
+The firing range is the weapon and damage test level. Movement tuning lives in `resources/player/movement_profile.tres`. Weapon feel lives on each `WeaponStats` resource. The next phase has not been started.
 
 - [x] Godot 4 project, directory layout, and design docs
 - [x] First playable prototype: test room, first-person move and look, hitscan shooting, target dummy
@@ -8,6 +8,7 @@ The firing range is the weapon and damage test level. Movement tuning lives in `
 - [x] Pistol, rifle, and shotgun: fire modes, magazines, reserve ammo, reload, recoil, spread, sights, sway, ammo HUD, placeholder audio
 - [x] Firing range: shared interactables, weapon pickups, ammunition crate, target manager, respawn button
 - [x] Player movement: accel, sprint, crouch, slide, jump, bob, and landing dip from `MovementProfile`
+- [x] Movement and weapon handling: longer slides, prone, paper guns, iron-sight ADS, visible recoil
 - [ ] Enemy AI
 - [ ] Objective and extraction level
 - [ ] Final weapon art, HUD polish, and audio beyond the placeholders
