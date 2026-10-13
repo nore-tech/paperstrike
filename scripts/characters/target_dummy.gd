@@ -30,7 +30,7 @@ func restore() -> void:
 	if card != null and card.has_method("reset_presentation"):
 		card.reset_presentation()
 
-func take_damage(amount: int) -> void:
+func take_damage(amount: int, _hit_point: Vector3 = Vector3.ZERO) -> void:
 	if health <= 0:
 		return
 	health = maxi(0, health - amount)

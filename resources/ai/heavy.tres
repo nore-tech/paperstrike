@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ai/enemy_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Corrugated Bruiser"
+max_health = 180
+move_speed = 2.3
+chase_speed = 3.0
+damage = 20
+fire_interval = 0.75
+accuracy_degrees = 3.2
+engagement_range = 26.0
+preferred_range = 12.0
+vision_range = 30.0
+vision_fov_degrees = 55.0
+hearing_range = 38.0
+cover_health_threshold = 0.55
+scale = 1.2
+body_color = Color(0.55, 0.4, 0.26, 1)
+trim_color = Color(0.28, 0.18, 0.1, 1)
+aggressive = false

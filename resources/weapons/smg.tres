@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="WeaponStats" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon_stats.gd" id="1"]
+[ext_resource type="AudioStream" path="res://audio/sfx/rifle_fire.wav" id="2"]
+[ext_resource type="AudioStream" path="res://audio/sfx/reload.wav" id="3"]
+[ext_resource type="AudioStream" path="res://audio/sfx/empty.wav" id="4"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Paper SMG"
+form = 1
+damage = 11
+range_meters = 28.0
+rounds_per_second = 12.0
+fire_mode = 1
+magazine_size = 32
+starting_reserve = 96
+reload_seconds = 1.35
+recoil_pitch_degrees = 0.85
+recoil_yaw_degrees = 0.42
+recoil_recovery = 11.0
+camera_recover = 0.45
+visual_kick = 0.04
+visual_pitch_degrees = 5.5
+visual_yaw_degrees = 1.8
+visual_recovery = 12.0
+ads_recoil_scale = 0.55
+hip_spread_degrees = 1.8
+ads_spread_degrees = 0.35
+pellet_count = 1
+ads_fov = 58.0
+ads_time = 0.12
+ads_eye_distance = 0.2
+hip_position = Vector3(0.18, -0.17, -0.32)
+hip_rotation_degrees = Vector3(1.5, -3.0, 5.0)
+sway_amount = 0.014
+bob_amount = 0.014
+view_color = Color(0.62, 0.48, 0.3, 1)
+fire_sound = ExtResource("2")
+reload_sound = ExtResource("3")
+empty_sound = ExtResource("4")
+fire_volume_db = -9.0

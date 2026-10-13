@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/levels/test_room.gd" id="1_room"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -13,6 +13,9 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/respawn_targets_button.tscn" id="11_button"]
 [ext_resource type="PackedScene" path="res://scenes/ui/interaction_prompt.tscn" id="12_prompt"]
 [ext_resource type="Script" path="res://scripts/levels/range_target_manager.gd" id="13_manager"]
+[ext_resource type="PackedScene" path="res://scenes/ui/health_hud.tscn" id="14_health"]
+[ext_resource type="PackedScene" path="res://scenes/ui/damage_vignette.tscn" id="15_vignette"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="16_pause"]
 
 [sub_resource type="Environment" id="Environment_room"]
 background_mode = 1
@@ -92,3 +95,9 @@ script = ExtResource("13_manager")
 [node name="AmmoHud" parent="." instance=ExtResource("5_ammo")]
 
 [node name="InteractionPrompt" parent="." instance=ExtResource("12_prompt")]
+
+[node name="HealthHud" parent="." instance=ExtResource("14_health")]
+
+[node name="DamageVignette" parent="." instance=ExtResource("15_vignette")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("16_pause")]

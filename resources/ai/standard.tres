@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ai/enemy_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Cardboard Trooper"
+max_health = 100
+move_speed = 3.2
+chase_speed = 4.4
+damage = 12
+fire_interval = 0.55
+accuracy_degrees = 4.5
+engagement_range = 22.0
+preferred_range = 10.0
+vision_range = 28.0
+vision_fov_degrees = 70.0
+hearing_range = 34.0
+cover_health_threshold = 0.45
+scale = 1.0
+body_color = Color(0.78, 0.62, 0.42, 1)
+trim_color = Color(0.42, 0.3, 0.18, 1)
+aggressive = false

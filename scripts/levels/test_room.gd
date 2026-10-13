@@ -13,6 +13,9 @@ const _edge: PaperMaterial = preload("res://resources/presentation/cardboard_edg
 const _impact_scene: PackedScene = preload("res://scenes/presentation/paper_impact.tscn")
 
 func _ready() -> void:
+	var session := get_node_or_null("/root/GameSession")
+	if session != null:
+		session.allow_pause = true
 	_add_block(Vector3(ROOM_WIDTH, 0.4, ROOM_LENGTH), Vector3(0.0, -0.2, 0.0), Vector3.UP, _floor_face)
 	var half_z := ROOM_LENGTH * 0.5
 	var half_x := ROOM_WIDTH * 0.5
@@ -29,6 +32,13 @@ func _ready() -> void:
 	var hud := get_node_or_null("AmmoHud")
 	if hud != null and weapon != null:
 		hud.bind(weapon)
+	var player := get_node_or_null("Player")
+	var health_hud := get_node_or_null("HealthHud")
+	if health_hud != null and health_hud.has_method("bind") and player != null:
+		health_hud.bind(player)
+	var vignette := get_node_or_null("DamageVignette/Color")
+	if vignette != null and vignette.has_method("bind") and player != null:
+		vignette.bind(player)
 
 func _add_table() -> void:
 	_add_block(Vector3(2.4, 0.9, 0.7), Vector3(-3.2, 0.45, 12.0), Vector3.UP, _wall_face)

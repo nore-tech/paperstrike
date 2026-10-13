@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ai/enemy_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Paper Scout"
+max_health = 60
+move_speed = 4.4
+chase_speed = 6.0
+damage = 8
+fire_interval = 0.38
+accuracy_degrees = 6.5
+engagement_range = 14.0
+preferred_range = 6.0
+vision_range = 24.0
+vision_fov_degrees = 85.0
+hearing_range = 30.0
+cover_health_threshold = 0.25
+scale = 0.9
+body_color = Color(0.86, 0.74, 0.52, 1)
+trim_color = Color(0.55, 0.36, 0.2, 1)
+aggressive = true

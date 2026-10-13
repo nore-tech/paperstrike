@@ -8,15 +8,24 @@ enum MoveState { IDLE, WALKING, SPRINTING, CROUCHING, SLIDING, JUMPING, FALLING,
 const PISTOL := preload("res://resources/weapons/pistol.tres")
 const RIFLE := preload("res://resources/weapons/rifle.tres")
 const SHOTGUN := preload("res://resources/weapons/shotgun.tres")
+const SMG := preload("res://resources/weapons/smg.tres")
 const _DEFAULT_PROFILE := preload("res://resources/player/movement_profile.tres")
 
+signal health_changed(current: int, maximum: int)
+signal damaged(amount: int, from: Vector3)
+signal died
+signal respawned
+
 @export var profile: MovementProfile
+@export var max_health := 100
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _weapon: HitscanWeapon = $Camera3D/HitscanWeapon
 @onready var _collision: CollisionShape3D = $CollisionShape3D
 
 var move_state: MoveState = MoveState.IDLE
+var health := 100
+var is_dead := false
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _hip_fov := 75.0
@@ -47,10 +56,13 @@ var _stand_query: CapsuleShape3D
 var _crouch_query: CapsuleShape3D
 var _prone_box: BoxShape3D
 var _prone_query: BoxShape3D
+var _hurt_audio: AudioStreamPlayer3D
 const _INTERACT_RANGE := 2.6
 
 func _ready() -> void:
 	_ensure_input_map()
+	add_to_group("player")
+	health = max_health
 	if profile == null:
 		profile = _DEFAULT_PROFILE
 	_hip_fov = _camera.fov
@@ -69,16 +81,30 @@ func _ready() -> void:
 	_prone_box.size = Vector3(profile.prone_width, profile.prone_height, profile.prone_length)
 	_prone_query = BoxShape3D.new()
 	_prone_query.size = Vector3(profile.prone_width * 0.9, profile.prone_height - 0.05, profile.prone_length * 0.9)
+	_hurt_audio = AudioStreamPlayer3D.new()
+	_hurt_audio.volume_db = -8.0
+	add_child(_hurt_audio)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	give_weapon(PISTOL)
+	if not _weapon.fired.is_connected(_on_weapon_fired):
+		_weapon.fired.connect(_on_weapon_fired)
+	health_changed.emit(health, max_health)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_dead:
+		return
+	var session := _session()
+	if session != null and session.is_paused:
+		return
 	if event.is_action_pressed("ui_cancel"):
-		_toggle_mouse_capture()
+		if session == null or not session.allow_pause:
+			_toggle_mouse_capture()
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var ads := _weapon.ads_blend()
 		var sensitivity := profile.mouse_sensitivity * lerpf(1.0, 0.62, ads)
+		if session != null:
+			sensitivity *= session.mouse_sensitivity_scale
 		rotate_y(-event.relative.x * sensitivity)
 		_camera.rotate_x(-event.relative.y * sensitivity)
 		_camera.rotation.x = clampf(_camera.rotation.x, deg_to_rad(-89.0), deg_to_rad(89.0))
@@ -94,6 +120,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		select_weapon(RIFLE)
 	elif event.is_action_pressed("weapon_shotgun"):
 		select_weapon(SHOTGUN)
+	elif event.is_action_pressed("weapon_smg"):
+		select_weapon(SMG)
 	elif event.is_action_pressed("reload"):
 		_weapon.start_reload()
 	elif event.is_action_pressed("interact"):
@@ -102,6 +130,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			looked.interact(self)
 
 func _physics_process(delta: float) -> void:
+	if is_dead:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y -= _gravity * delta
+		move_and_slide()
+		return
 	var wish := _wish_direction()
 	var ads_blocking := _weapon.ads_blend() >= 0.2
 	var crouch_held := Input.is_action_pressed("crouch")
@@ -133,6 +168,12 @@ func _physics_process(delta: float) -> void:
 	_refresh_state(wish, sprint_held and not _prone and (not crouch_held or _suppress_crouch))
 
 func _process(delta: float) -> void:
+	if is_dead:
+		_update_prompt()
+		return
+	var session := _session()
+	if session != null and session.is_paused:
+		return
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	var trigger_down := captured and not _capture_click and Input.is_action_pressed("fire")
 	var trigger_just_pressed := trigger_down and not _trigger_was_down
@@ -189,6 +230,96 @@ func select_weapon(stats: WeaponStats) -> void:
 
 func restock_equipped() -> void:
 	_weapon.restock()
+
+func heal(amount: int) -> void:
+	if is_dead:
+		return
+	set_health(mini(max_health, health + amount))
+
+func set_health(value: int) -> void:
+	health = clampi(value, 0, max_health)
+	health_changed.emit(health, max_health)
+
+func take_damage(amount: int, from: Vector3 = Vector3.ZERO) -> void:
+	if is_dead or amount <= 0:
+		return
+	set_health(health - amount)
+	damaged.emit(amount, from)
+	_hurt_audio.stream = preload("res://audio/sfx/empty.wav")
+	_hurt_audio.pitch_scale = 0.7
+	_hurt_audio.play()
+	if health <= 0:
+		_die()
+
+func _die() -> void:
+	if is_dead:
+		return
+	is_dead = true
+	velocity = Vector3.ZERO
+	died.emit()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func respawn_at_checkpoint() -> void:
+	is_dead = false
+	var session := _session()
+	if session != null and session.has_checkpoint:
+		session.restore_checkpoint(self)
+	else:
+		set_health(max_health)
+	respawned.emit()
+	health_changed.emit(health, max_health)
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func export_loadout() -> Dictionary:
+	if _weapon.stats != null:
+		_saved_ammo[_weapon.stats.resource_path] = {"mag": _weapon.magazine, "reserve": _weapon.reserve}
+	var paths: Array[String] = []
+	for key in _owned:
+		paths.append(key)
+	return {"owned": _owned.duplicate(), "ammo": _saved_ammo.duplicate(true), "paths": paths}
+
+func restore_loadout(owned: Array, ammo: Dictionary, _paths: Array) -> void:
+	_owned.clear()
+	_loadout.clear()
+	_saved_ammo = ammo.duplicate(true)
+	for key in owned:
+		var path := String(key)
+		if path == "":
+			continue
+		var stats := load(path) as WeaponStats
+		if stats == null:
+			continue
+		_owned.append(path)
+		_loadout[path] = stats
+	if _owned.is_empty():
+		give_weapon(PISTOL)
+		return
+	var equip_stats: WeaponStats = _loadout[_owned[0]]
+	for key in _owned:
+		if String(key).ends_with("rifle.tres") or String(key).ends_with("smg.tres"):
+			equip_stats = _loadout[key]
+			break
+	_weapon.equip(equip_stats)
+	_sync_recoil_baseline()
+	var ek := equip_stats.resource_path
+	if _saved_ammo.has(ek):
+		_weapon.magazine = int(_saved_ammo[ek].mag)
+		_weapon.reserve = int(_saved_ammo[ek].reserve)
+		_weapon.ammo_changed.emit(_weapon.magazine, _weapon.reserve)
+
+func _on_weapon_fired() -> void:
+	var session := _session()
+	if session != null:
+		session.register_shot()
+	_broadcast_gunshot()
+
+func _broadcast_gunshot() -> void:
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy.has_method("hear_sound"):
+			enemy.hear_sound(global_position)
+
+func _session() -> Node:
+	return get_node_or_null("/root/GameSession")
 
 func _wish_direction() -> Vector3:
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -460,6 +591,7 @@ func _ensure_input_map() -> void:
 	_bind_key("weapon_pistol", KEY_1)
 	_bind_key("weapon_rifle", KEY_2)
 	_bind_key("weapon_shotgun", KEY_3)
+	_bind_key("weapon_smg", KEY_4)
 	_bind_mouse("fire", MOUSE_BUTTON_LEFT)
 	_bind_mouse("aim", MOUSE_BUTTON_RIGHT)
 

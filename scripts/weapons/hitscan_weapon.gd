@@ -165,7 +165,7 @@ func _fire(origin: Vector3, direction: Vector3, exclude: Array[RID]) -> void:
 		var collider: Object = result.collider
 		hit_registered.emit(collider, stats.damage, result.position, result.normal)
 		if collider.has_method("take_damage"):
-			collider.take_damage(stats.damage)
+			collider.take_damage(stats.damage, result.position)
 
 func _spread_direction(aim: Vector3) -> Vector3:
 	var degrees := lerpf(stats.hip_spread_degrees, stats.ads_spread_degrees, _ads)

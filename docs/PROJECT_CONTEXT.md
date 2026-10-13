@@ -1,26 +1,29 @@
 # Project context
 
-Paperstrike is a single-player 2.5D first-person shooter. Movement, hits, and levels are 3D. Characters are paper. The assault rifle is a handmade cardboard model: layered panels, a faceted tube barrel, folded edge flaps, and a separate magazine. The pistol and shotgun are still the earlier layered paper meshes.
+Paperstrike is a single-player first-person shooter. Movement, hits, AI, and levels are 3D. Presentation is handcrafted cardboard / papercraft.
 
-The playable level is the firing range, `scenes/levels/test_room.tscn`. It is the permanent test bed for weapons, damage, recoil, and movement. There is no enemy AI yet.
+Main scene: `scenes/ui/main_menu.tscn`  
+Combat level: `scenes/levels/cardboard_compound.tscn` (**The Cardboard Compound**)  
+Training: `scenes/levels/test_room.tscn` (firing range)
 
 ## What is in the build
 
-- First-person movement on `Player`, tuned by `resources/player/movement_profile.tres`. States are idle, walking, sprinting, crouching, prone, sliding, jumping, and falling.
-- One `HitscanWeapon` driven by `WeaponStats`. The pistol is the spawn weapon. The rifle and shotgun are world pickups. Keys 1–3 switch owned guns. E interacts.
-- The assault rifle viewmodel is built from cardboard panels and tube sections, with named parts (receiver, barrel, handguard, stock, grip, trigger guard, magazine, muzzle, sights). Right click aims through the rear and front sight markers. The mesh kicks and climbs under fire, separate from the camera recoil. Drawing a gun raises it into place. Sprinting lowers it. Reloading dips the gun and the magazine.
-- Stationary target dummies and a respawn button that does not reload the scene or clear weapons.
-
-Design and the longer status writeup are in `docs/GAME_DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/CURRENT_STATE.md`, and `docs/TODO.md`.
+- CoD-inspired movement on `Player` + `MovementProfile`: walk, sprint, slide (+ cancel), jump, crouch, prone.
+- Hitscan weapons via `WeaponStats`: pistol, assault rifle, SMG, shotgun. ADS iron sights, recoil, ammo, reload. Keys 1–4.
+- Player health (100), damage vignette, death screen, checkpoint respawn.
+- Cardboard enemy soldiers with FSM AI, vision/hearing, cover points, Standard/Light/Heavy variants.
+- Compound level with five sections, objectives, checkpoints, extraction, completion stats.
+- Main menu, pause menu, firing range retained as a separate mode.
+- `GameSession` autoload owns scene routing, pause, settings, run statistics, checkpoint memory.
 
 ## Controls
 
-WASD move, Shift sprint, hold Left Ctrl to crouch. Hold Ctrl while sprinting to slide, and keep holding it to stay in the slide. Space jumps out of a slide and keeps the horizontal speed. Press Shift again during a slide to stand into a sprint when the ceiling allows. Z goes prone, including from a slide. Mouse look, left click fire, right click aim, R reload, E interact, 1/2/3 owned weapons, Esc mouse.
+WASD move, Shift sprint, hold Left Ctrl crouch/slide, Space jump, Z prone, mouse look, LMB fire, RMB ADS, R reload, E interact, 1–4 weapons, Esc pause (or free mouse on range if pause disabled).
 
 ## Repo
 
-https://github.com/nore-tech/paperstrike on `main`. Godot 4.4, Forward Plus.
+https://github.com/nore-tech/paperstrike — Godot 4.4, Forward Plus.
 
-## Not started
+## Milestone status
 
-Enemy AI, objectives, extraction, and any phase after this movement and weapon-handling pass.
+Milestone 3 (first playable combat level) implemented. See `docs/MILESTONE_3_PROGRESS.md`.
