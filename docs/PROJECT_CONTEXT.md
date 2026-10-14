@@ -26,4 +26,4 @@ https://github.com/nore-tech/paperstrike — Godot 4.4, Forward Plus.
 
 ## Milestone status
 
-Milestone 3 (first playable combat level) implemented. See `docs/MILESTONE_3_PROGRESS.md`.
+Milestone 3 is on **`main`**. Milestone 3.5 redesigned compound accessibility/combat layout. See `docs/MILESTONE_3_5_PROGRESS.md`.

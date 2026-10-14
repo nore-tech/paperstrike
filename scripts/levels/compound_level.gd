@@ -1,6 +1,6 @@
 extends Node3D
 
-## The Cardboard Compound — five-section combat level with encounters and extraction.
+## The Cardboard Compound — redesigned for player-scale traversal and combat flow.
 
 const _floor_face: PaperMaterial = preload("res://resources/presentation/paper_floor.tres")
 const _wall_face: PaperMaterial = preload("res://resources/presentation/paper_wall.tres")
@@ -32,15 +32,21 @@ var objectives := [
 var objective_index := 0
 var cleared_encounters: Array[String] = []
 
+## Critical route points used by the accessibility validator (player eye-height positions).
+var route_waypoints: Array[Vector3] = []
+var objective_markers: Dictionary = {}
+var enemy_spawn_points: Array[Vector3] = []
+
 var _player: CharacterBody3D
 var _nav_region: NavigationRegion3D
 var _extract: ExtractPoint
-var _encounter_enemies: Dictionary = {}
 var _spawn_records: Array[Dictionary] = []
 var _checkpoint_markers: Dictionary = {}
+var _kit: LevelKit
 
 func _ready() -> void:
 	add_to_group("compound_level")
+	_kit = LevelKit.new(self, _floor_face, _wall_face, _edge)
 	_build_environment()
 	_build_navigation()
 	_spawn_player()
@@ -98,8 +104,11 @@ func activate_checkpoint(id: String) -> void:
 	if not _checkpoint_markers.has(id):
 		return
 	var session := get_node_or_null("/root/GameSession")
-	if session != null:
-		session.store_checkpoint(_player, objective_index, cleared_encounters)
+	if session == null:
+		return
+	session.store_checkpoint(_player, objective_index, cleared_encounters)
+	# Respawn at the designed pad, not wherever the last kill happened.
+	session.checkpoint_transform = Transform3D(_player.global_transform.basis, _checkpoint_markers[id])
 
 func notify_entered_zone(zone_id: String) -> void:
 	match zone_id:
@@ -107,8 +116,8 @@ func notify_entered_zone(zone_id: String) -> void:
 			if objective_index == 0:
 				_set_objective(1)
 		"interior":
-			if objective_index < 3:
-				_set_objective(3)
+			if objective_index < 2:
+				_set_objective(2)
 		"warehouse":
 			if objective_index < 3:
 				_set_objective(3)
@@ -151,12 +160,13 @@ func _on_enemy_died(encounter_id: String) -> void:
 
 func _spawn_player() -> void:
 	_player = _player_scene.instantiate()
-	_player.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.9, 46))
+	_player.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.9, 48))
 	add_child(_player)
 	_player.died.connect(_on_player_died)
 	var session := get_node_or_null("/root/GameSession")
 	if session != null:
 		session.store_checkpoint(_player, 0, [])
+		session.checkpoint_transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.9, 48))
 	var weapon := _player.get_node_or_null("Camera3D/HitscanWeapon")
 	if weapon != null and weapon.has_signal("hit_registered"):
 		weapon.hit_registered.connect(_on_hit_registered)
@@ -178,20 +188,21 @@ func _bind_ui() -> void:
 		vignette.bind(_player)
 
 func _place_pickups() -> void:
-	_spawn_pickup(_RIFLE, Vector3(-2.2, 1.05, 44))
-	_spawn_pickup(_SMG, Vector3(2.4, 1.05, 30))
-	_spawn_pickup(_SHOTGUN, Vector3(-1.5, 1.05, 2))
+	_spawn_pickup(_RIFLE, Vector3(-3.0, 1.05, 47))
+	_spawn_pickup(_SMG, Vector3(4.5, 1.05, 34))
+	_spawn_pickup(_SHOTGUN, Vector3(-4.0, 1.05, 4))
 	var ammo := _AMMO.instantiate()
-	ammo.position = Vector3(2.0, 0.35, 44)
+	ammo.position = Vector3(3.2, 0.35, 47)
 	add_child(ammo)
-	_spawn_health(Vector3(3.0, 0.4, 34), 35)
-	_spawn_health(Vector3(-3.5, 0.4, 12), 40)
-	_spawn_health(Vector3(4.0, 0.4, -8), 50)
-	_add_sign(Vector3(0, 2.2, 42), "INSERTION — PAPERSTRIKE 01")
-	_add_sign(Vector3(0, 2.4, 36), "OUTER COMPOUND")
-	_add_sign(Vector3(0, 2.4, 18), "INTERIOR FACILITY")
-	_add_sign(Vector3(0, 2.6, 0), "STORAGE WAREHOUSE")
-	_add_sign(Vector3(0, 2.6, -22), "FINAL DEFENSE")
+	_spawn_health(Vector3(5.0, 0.4, 36), 35)
+	_spawn_health(Vector3(-5.0, 0.4, 14), 40)
+	_spawn_health(Vector3(6.0, 0.4, -4), 50)
+	_spawn_health(Vector3(-5.5, 0.4, -24), 50)
+	_kit.sign_at(Vector3(0, 2.4, 46), "INSERTION — PAPERSTRIKE 01")
+	_kit.sign_at(Vector3(0, 2.5, 38), "OUTER COMPOUND")
+	_kit.sign_at(Vector3(0, 2.5, 22), "INTERIOR FACILITY")
+	_kit.sign_at(Vector3(0, 2.6, 2), "STORAGE WAREHOUSE")
+	_kit.sign_at(Vector3(0, 2.6, -18), "FINAL DEFENSE")
 
 func _spawn_pickup(stats: WeaponStats, pos: Vector3) -> void:
 	var p := _PICKUP.instantiate()
@@ -211,27 +222,28 @@ func _spawn_health(pos: Vector3, amount: int) -> void:
 	add_child(h)
 
 func _spawn_encounters() -> void:
-	# Outer compound
-	_spawn_enemy("outer", _LIGHT, Vector3(-4, 0, 32), [Vector3(-4, 0, 32), Vector3(4, 0, 30)], [Vector3(-5, 0, 28), Vector3(5, 0, 28)])
-	_spawn_enemy("outer", _STANDARD, Vector3(3.5, 0, 28), [Vector3(3.5, 0, 28), Vector3(-2, 0, 26)], [Vector3(5, 0, 26)])
-	_spawn_enemy("outer", _STANDARD, Vector3(-1, 0, 24), [Vector3(-1, 0, 24), Vector3(2, 0, 22)], [Vector3(-4, 0, 22)])
-	# Interior
-	_spawn_enemy("interior", _LIGHT, Vector3(-3, 0, 14), [Vector3(-3, 0, 14), Vector3(-3, 0, 10)], [Vector3(-4.5, 0, 12)])
-	_spawn_enemy("interior", _STANDARD, Vector3(3, 0, 12), [Vector3(3, 0, 12), Vector3(3, 0, 8)], [Vector3(4.5, 0, 10)])
-	_spawn_enemy("interior", _STANDARD, Vector3(0, 0, 8), [Vector3(-1, 0, 8), Vector3(1, 0, 6)], [Vector3(0, 0, 5)])
-	# Warehouse
-	_spawn_enemy("warehouse", _STANDARD, Vector3(-5, 0, -2), [Vector3(-5, 0, -2), Vector3(-2, 0, -6)], [Vector3(-6, 0, -4)])
-	_spawn_enemy("warehouse", _LIGHT, Vector3(5, 0, -4), [Vector3(5, 0, -4), Vector3(2, 0, -8)], [Vector3(6, 0, -6)])
-	_spawn_enemy("warehouse", _HEAVY, Vector3(0, 0, -10), [Vector3(-2, 0, -10), Vector3(2, 0, -12)], [Vector3(0, 0, -8), Vector3(4, 0, -10)])
-	_spawn_enemy("warehouse", _STANDARD, Vector3(-3, 1.6, -6), [Vector3(-3, 1.6, -6)], [Vector3(-3, 1.6, -6)])
-	# Final
-	_spawn_enemy("final", _STANDARD, Vector3(-4, 0, -26), [Vector3(-4, 0, -26), Vector3(-1, 0, -30)], [Vector3(-5, 0, -28)])
-	_spawn_enemy("final", _LIGHT, Vector3(4, 0, -26), [Vector3(4, 0, -26), Vector3(1, 0, -30)], [Vector3(5, 0, -28)])
-	_spawn_enemy("final", _HEAVY, Vector3(0, 0, -32), [Vector3(-2, 0, -32), Vector3(2, 0, -34)], [Vector3(0, 0, -30)])
-	_spawn_enemy("final", _STANDARD, Vector3(-3, 0, -34), [Vector3(-3, 0, -34)], [Vector3(-4, 0, -32)])
-	_spawn_enemy("final", _LIGHT, Vector3(3, 0, -34), [Vector3(3, 0, -34)], [Vector3(4, 0, -32)])
+	# Outer — ground only, cover-linked
+	_spawn_enemy("outer", _LIGHT, Vector3(-5.5, 0, 34), [Vector3(-5.5, 0, 34), Vector3(-2, 0, 30)], [Vector3(-6, 0, 32), Vector3(-3, 0, 28)])
+	_spawn_enemy("outer", _STANDARD, Vector3(5.0, 0, 32), [Vector3(5.0, 0, 32), Vector3(2, 0, 28)], [Vector3(6, 0, 30), Vector3(3, 0, 27)])
+	_spawn_enemy("outer", _STANDARD, Vector3(0, 0, 27), [Vector3(-2, 0, 27), Vector3(2, 0, 25)], [Vector3(-4, 0, 26), Vector3(4, 0, 26)])
+	# Interior — rooms + flank hall
+	_spawn_enemy("interior", _LIGHT, Vector3(-3.5, 0, 17), [Vector3(-3.5, 0, 17), Vector3(-3.5, 0, 13)], [Vector3(-5.0, 0, 15)])
+	_spawn_enemy("interior", _STANDARD, Vector3(3.5, 0, 15), [Vector3(3.5, 0, 15), Vector3(3.5, 0, 11)], [Vector3(5.0, 0, 13)])
+	_spawn_enemy("interior", _STANDARD, Vector3(0, 0, 8.5), [Vector3(-1.5, 0, 8.5), Vector3(1.5, 0, 7.5)], [Vector3(0, 0, 7)])
+	# Warehouse — floor + mezzanine via ramp
+	_spawn_enemy("warehouse", _STANDARD, Vector3(-1.0, 0, 2.5), [Vector3(-1.0, 0, 2.5), Vector3(1.0, 0, -1)], [Vector3(-6, 0, -1)])
+	_spawn_enemy("warehouse", _LIGHT, Vector3(3.5, 0, 0), [Vector3(3.5, 0, 0), Vector3(1.5, 0, -4)], [Vector3(6, 0, -3)])
+	_spawn_enemy("warehouse", _HEAVY, Vector3(0, 0, -4), [Vector3(-2, 0, -4), Vector3(2, 0, -6)], [Vector3(0, 0, -2), Vector3(3, 0, -5)])
+	_spawn_enemy("warehouse", _STANDARD, Vector3(-4.5, 1.45, -2.0), [Vector3(-4.5, 1.45, -2.0), Vector3(-3.5, 1.45, -3.0)], [Vector3(-4.5, 1.45, -2.0)])
+	# Final arena
+	_spawn_enemy("final", _STANDARD, Vector3(-3.5, 0, -20), [Vector3(-3.5, 0, -20), Vector3(-1.5, 0, -24)], [Vector3(-6, 0, -24)])
+	_spawn_enemy("final", _LIGHT, Vector3(3.5, 0, -20), [Vector3(3.5, 0, -20), Vector3(1.5, 0, -24)], [Vector3(6, 0, -24)])
+	_spawn_enemy("final", _HEAVY, Vector3(0, 0, -28), [Vector3(-2, 0, -28), Vector3(2, 0, -30)], [Vector3(0, 0, -26)])
+	_spawn_enemy("final", _STANDARD, Vector3(-2.5, 0, -32), [Vector3(-2.5, 0, -32)], [Vector3(-6, 0, -29)])
+	_spawn_enemy("final", _LIGHT, Vector3(2.5, 0, -32), [Vector3(2.5, 0, -32)], [Vector3(6, 0, -29)])
 
 func _spawn_enemy(encounter_id: String, stats: EnemyStats, pos: Vector3, patrol: Array, cover: Array) -> void:
+	enemy_spawn_points.append(pos)
 	var record := {
 		"encounter_id": encounter_id,
 		"stats": stats,
@@ -266,20 +278,24 @@ func _clear_enemies() -> void:
 			enemy.queue_free()
 
 func _place_checkpoints() -> void:
-	_checkpoint_markers["cp_outer"] = Vector3(0, 0.9, 22)
-	_checkpoint_markers["cp_interior"] = Vector3(0, 0.9, 6)
-	_checkpoint_markers["cp_warehouse"] = Vector3(0, 0.9, -14)
-	_checkpoint_markers["cp_final"] = Vector3(0, 0.9, -24)
-	_add_trigger("enter", Vector3(0, 1, 38), Vector3(8, 2, 2), func(): notify_entered_zone("enter"))
-	_add_trigger("interior_gate", Vector3(0, 1, 18), Vector3(6, 2, 2), func(): notify_entered_zone("interior"))
-	_add_trigger("warehouse_gate", Vector3(0, 1, 0), Vector3(10, 2, 2), func(): notify_entered_zone("warehouse"))
+	_checkpoint_markers["cp_outer"] = Vector3(0, 0.9, 24)
+	_checkpoint_markers["cp_interior"] = Vector3(0, 0.9, 8)
+	_checkpoint_markers["cp_warehouse"] = Vector3(0, 0.9, -10)
+	_checkpoint_markers["cp_final"] = Vector3(0, 0.9, -20)
+	objective_markers["enter"] = Vector3(0, 1, 40)
+	objective_markers["interior"] = Vector3(0, 1, 20)
+	objective_markers["warehouse"] = Vector3(0, 1, 2)
+	objective_markers["extract"] = Vector3(0, 1, -34)
+	_add_trigger("enter", Vector3(0, 1, 40), Vector3(10, 2, 2), func(): notify_entered_zone("enter"))
+	_add_trigger("interior_gate", Vector3(0, 1, 20), Vector3(8, 2, 2), func(): notify_entered_zone("interior"))
+	_add_trigger("warehouse_gate", Vector3(0, 1, 2), Vector3(12, 2, 2), func(): notify_entered_zone("warehouse"))
 
 func _place_extract() -> void:
 	_extract = ExtractPoint.new()
-	_extract.position = Vector3(0, 0.1, -38)
+	_extract.position = Vector3(0, 0.1, -34)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(1.8, 1.2, 1.8)
+	box.size = Vector3(2.2, 1.2, 2.2)
 	shape.shape = box
 	_extract.add_child(shape)
 	add_child(_extract)
@@ -300,66 +316,128 @@ func _add_trigger(id: String, pos: Vector3, size: Vector3, cb: Callable) -> void
 	add_child(area)
 
 func _build_environment() -> void:
-	# Floor plane under whole compound
-	_add_block(Vector3(28, 0.4, 100), Vector3(0, -0.2, 4), Vector3.UP, _floor_face)
-	# Section 1 insertion bay
-	_room(Vector3(0, 0, 44), 10, 10, 3.6, true)
-	_add_block(Vector3(2.2, 0.9, 0.8), Vector3(-2.0, 0.45, 44), Vector3.UP, _wall_face)
-	# Outer compound yard with cover
-	_fence_line(Vector3(-8, 0, 38), Vector3(-8, 0, 20), 3.0)
-	_fence_line(Vector3(8, 0, 38), Vector3(8, 0, 20), 3.0)
-	_crate(Vector3(-5, 0, 30), Vector3(1.2, 1.2, 1.2))
-	_crate(Vector3(5, 0, 28), Vector3(1.4, 1.0, 1.8))
-	_crate(Vector3(-3, 0, 24), Vector3(2.0, 1.4, 0.8))
-	_crate(Vector3(3.5, 0, 22), Vector3(1.0, 1.6, 1.0))
-	# Section 3 interior facility
-	_room(Vector3(0, 0, 12), 12, 14, 3.4, false)
-	_add_block(Vector3(0.4, 3.0, 4.0), Vector3(-2.5, 1.5, 12), Vector3(1, 0, 0), _wall_face) # divider
-	_add_block(Vector3(0.4, 3.0, 3.0), Vector3(2.5, 1.5, 10), Vector3(-1, 0, 0), _wall_face)
-	_doorway(Vector3(0, 0, 19), 2.2, 2.6)
-	_doorway(Vector3(0, 0, 5), 2.2, 2.6)
-	_crate(Vector3(-4, 0, 14), Vector3(1.0, 1.0, 1.0))
-	_crate(Vector3(4, 0, 9), Vector3(1.2, 1.3, 0.9))
-	# Alternate side corridor
-	_add_block(Vector3(3.5, 0.4, 10), Vector3(7.5, -0.2, 12), Vector3.UP, _floor_face)
-	_fence_line(Vector3(6, 0, 17), Vector3(6, 0, 7), 2.8)
-	_fence_line(Vector3(9, 0, 17), Vector3(9, 0, 7), 2.8)
-	# Warehouse
-	_room(Vector3(0, 0, -8), 18, 18, 4.2, false)
-	_crate(Vector3(-6, 0, -2), Vector3(2.2, 1.8, 2.2))
-	_crate(Vector3(6, 0, -4), Vector3(2.0, 1.5, 2.5))
-	_crate(Vector3(-2, 0, -8), Vector3(1.5, 1.2, 1.5))
-	_crate(Vector3(3, 0, -12), Vector3(1.8, 2.0, 1.2))
-	# Elevated platform
-	_add_block(Vector3(4.0, 0.3, 3.0), Vector3(-3, 1.45, -6), Vector3.UP, _wall_face)
-	_add_block(Vector3(1.2, 1.45, 0.4), Vector3(-1.2, 0.72, -5), Vector3(0, 0, 1), _edge) # ramp-ish step
-	_add_block(Vector3(1.2, 0.7, 0.4), Vector3(-1.2, 0.35, -4.2), Vector3(0, 0, 1), _edge)
-	# Final arena
-	_room(Vector3(0, 0, -30), 16, 16, 4.0, false)
-	_crate(Vector3(-5, 0, -26), Vector3(1.6, 1.4, 1.6))
-	_crate(Vector3(5, 0, -26), Vector3(1.6, 1.4, 1.6))
-	_crate(Vector3(0, 0, -34), Vector3(2.4, 1.2, 1.0))
-	_crate(Vector3(-4, 0, -32), Vector3(1.2, 1.8, 1.2))
-	_crate(Vector3(4, 0, -32), Vector3(1.2, 1.8, 1.2))
-	# Lighting
+	# Continuous ground slab
+	_kit.add_floor(Vector3(0, 0, 8), Vector2(36, 100))
+
+	# ---- 1. INSERTION bay (open south) ----
+	_kit.solid_wall_x(-7, 42, 52)
+	_kit.solid_wall_x(7, 42, 52)
+	_kit.solid_wall_z(52, -7, 7)
+	_kit.wall_with_door(Vector3(0, 0, 42), 14, 3.2, false, 4.0, 2.8) # open into yard
+	_kit.table(Vector3(-3.2, 0, 47), Vector3(2.4, 0.95, 0.9))
+	_kit.low_cover(Vector3(2.5, 0, 45), Vector3(1.2, 0.9, 0.7))
+
+	# ---- 2. OUTER COMPOUND yard ----
+	_kit.solid_wall_x(-9, 22, 42)
+	_kit.solid_wall_x(9, 22, 42)
+	_kit.wall_with_door(Vector3(0, 0, 22), 18, 3.2, false, 3.5, 2.8) # into interior
+	# Chevron low cover + flank lanes (≥2.5 m clear)
+	_kit.low_cover(Vector3(-4.5, 0, 36), Vector3(2.2, 1.0, 0.7))
+	_kit.low_cover(Vector3(4.5, 0, 34), Vector3(2.2, 1.0, 0.7))
+	_kit.low_cover(Vector3(-2.0, 0, 30), Vector3(1.6, 0.95, 0.7))
+	_kit.low_cover(Vector3(2.5, 0, 28), Vector3(1.8, 1.0, 0.7))
+	_kit.full_cover(Vector3(-6.5, 0, 28), Vector3(1.2, 1.7, 1.2))
+	_kit.full_cover(Vector3(6.5, 0, 26), Vector3(1.2, 1.7, 1.2))
+
+	# ---- 3. INTERIOR facility ----
+	_kit.solid_wall_x(-7, 6, 22)
+	_kit.solid_wall_x(7, 6, 22)
+	# Internal dividers with doors (clear 1.6 m)
+	_kit.wall_with_door(Vector3(-2.2, 0, 14), 8, 3.0, true, 1.6, 2.5)
+	_kit.wall_with_door(Vector3(2.2, 0, 12), 7, 3.0, true, 1.6, 2.5)
+	_kit.wall_with_door(Vector3(0, 0, 6), 14, 3.2, false, 3.2, 2.8) # into warehouse
+	# East flank corridor — connected through doors in east wall
+	_kit.add_floor(Vector3(9.5, 0, 14), Vector2(4.5, 14))
+	_kit.solid_wall_x(11.5, 7, 21)
+	_kit.solid_wall_z(21, 7, 11.5)
+	_kit.solid_wall_z(7, 7, 11.5)
+	_kit.wall_with_door(Vector3(7, 0, 18), 6, 3.0, true, 1.8, 2.5)
+	_kit.wall_with_door(Vector3(7, 0, 10), 6, 3.0, true, 1.8, 2.5)
+	_kit.low_cover(Vector3(-5.2, 0, 15), Vector3(1.4, 0.95, 0.8))
+	_kit.low_cover(Vector3(5.0, 0, 13), Vector3(1.4, 0.95, 0.8))
+
+	# ---- 4. WAREHOUSE ----
+	_kit.solid_wall_x(-10, -12, 6)
+	_kit.solid_wall_x(10, -12, 6)
+	_kit.wall_with_door(Vector3(0, 0, -12), 20, 3.6, false, 4.0, 2.8) # into final
+	# Cover islands leave ≥2.5 m aisles from patrol lanes
+	_kit.full_cover(Vector3(-8.2, 0, 2), Vector3(1.6, 1.6, 1.6))
+	_kit.full_cover(Vector3(8.2, 0, 0), Vector3(1.6, 1.6, 1.8))
+	_kit.low_cover(Vector3(-1.5, 0, -4), Vector3(1.6, 1.0, 1.0))
+	_kit.low_cover(Vector3(2.5, 0, -7), Vector3(1.5, 1.0, 1.0))
+	# Mezzanine + walkable ramp (rise 1.3 over run ~5 → ~14°)
+	_kit.platform(Vector3(-5.5, 1.34, -3), Vector2(4.5, 3.5))
+	_kit.ramp(Vector3(-2.0, 0.05, 2.0), Vector3(-4.0, 1.35, -1.0), 2.6)
+	_kit.low_cover(Vector3(-6.2, 1.35, -3.8), Vector3(1.2, 0.9, 0.6))
+
+	# ---- 5. FINAL arena ----
+	_kit.solid_wall_x(-9, -36, -12)
+	_kit.solid_wall_x(9, -36, -12)
+	_kit.solid_wall_z(-36, -9, 9)
+	_kit.low_cover(Vector3(-6.5, 0, -24), Vector3(1.8, 1.0, 1.0))
+	_kit.low_cover(Vector3(6.5, 0, -24), Vector3(1.8, 1.0, 1.0))
+	_kit.full_cover(Vector3(-6.5, 0, -29), Vector3(1.3, 1.7, 1.3))
+	_kit.full_cover(Vector3(6.5, 0, -29), Vector3(1.3, 1.7, 1.3))
+	_kit.low_cover(Vector3(0, 0, -27), Vector3(2.2, 1.0, 0.8))
+
+	# Critical route (capsule centers ≈ player origin height)
+	route_waypoints = [
+		Vector3(0, 0.95, 48),
+		Vector3(0, 0.95, 42),
+		Vector3(0, 0.95, 34),
+		Vector3(0, 0.95, 24),
+		Vector3(0, 0.95, 20),
+		Vector3(0, 0.95, 12),
+		Vector3(0, 0.95, 6),
+		Vector3(0, 0.95, 1),
+		Vector3(-2.0, 0.95, 2.0), # ramp foot
+		Vector3(-4.5, 2.2, -2.2), # mezzanine standing capsule center
+		Vector3(0, 0.95, -8),
+		Vector3(0, 0.95, -12),
+		Vector3(0, 0.95, -22),
+		Vector3(0, 0.95, -34),
+	]
+
+	_add_lights()
+
+func _add_lights() -> void:
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, 35, 0)
+	sun.rotation_degrees = Vector3(-52, 28, 0)
 	sun.light_color = Color(1.0, 0.93, 0.82)
 	sun.light_energy = 1.15
 	sun.shadow_enabled = true
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-20, -140, 0)
-	fill.light_color = Color(0.75, 0.84, 0.95)
-	fill.light_energy = 0.3
+	fill.rotation_degrees = Vector3(-18, -145, 0)
+	fill.light_color = Color(0.72, 0.82, 0.95)
+	fill.light_energy = 0.32
 	add_child(fill)
+	# Warm key in insertion, cooler in warehouse
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(0, 3.2, 46)
+	lamp.light_color = Color(1.0, 0.88, 0.7)
+	lamp.light_energy = 1.4
+	lamp.omni_range = 14.0
+	add_child(lamp)
+	var lamp2 := OmniLight3D.new()
+	lamp2.position = Vector3(0, 3.6, -4)
+	lamp2.light_color = Color(0.85, 0.9, 1.0)
+	lamp2.light_energy = 1.2
+	lamp2.omni_range = 16.0
+	add_child(lamp2)
+	var lamp3 := OmniLight3D.new()
+	lamp3.position = Vector3(0, 3.4, -26)
+	lamp3.light_color = Color(1.0, 0.82, 0.65)
+	lamp3.light_energy = 1.3
+	lamp3.omni_range = 15.0
+	add_child(lamp3)
 	var env := WorldEnvironment.new()
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.62, 0.7, 0.78)
+	environment.background_color = Color(0.58, 0.66, 0.74)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color(0.84, 0.76, 0.64)
-	environment.ambient_light_energy = 0.5
+	environment.ambient_light_energy = 0.48
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.environment = environment
 	add_child(env)
@@ -367,92 +445,7 @@ func _build_environment() -> void:
 func _build_navigation() -> void:
 	_nav_region = NavigationRegion3D.new()
 	add_child(_nav_region)
-	var mesh := NavigationMesh.new()
-	mesh.agent_radius = 0.35
-	mesh.agent_height = 1.6
-	mesh.agent_max_climb = 0.4
-	mesh.cell_size = 0.25
-	mesh.cell_height = 0.25
-	# Walkable polygons covering the compound path
-	_add_nav_quad(mesh, -9, 20, 9, 48)
-	_add_nav_quad(mesh, -7, 5, 7, 20)
-	_add_nav_quad(mesh, 5.5, 7, 9.5, 17) # side corridor
-	_add_nav_quad(mesh, -9, -17, 9, 5)
-	_add_nav_quad(mesh, -8, -38, 8, -17)
-	_nav_region.navigation_mesh = mesh
-
-func _add_nav_quad(mesh: NavigationMesh, min_x: float, min_z: float, max_x: float, max_z: float) -> void:
-	var verts := PackedVector3Array([
-		Vector3(min_x, 0.05, min_z),
-		Vector3(max_x, 0.05, min_z),
-		Vector3(max_x, 0.05, max_z),
-		Vector3(min_x, 0.05, max_z),
-	])
-	var polygons := PackedInt32Array([0, 1, 2, 3])
-	# NavigationMesh API: add vertices then polygon indices
-	var base := mesh.get_vertices().size()
-	var all := mesh.get_vertices()
-	all.append_array(verts)
-	mesh.set_vertices(all)
-	mesh.add_polygon(PackedInt32Array([base, base + 1, base + 2, base + 3]))
-
-func _room(center: Vector3, width: float, length: float, height: float, open_front: bool) -> void:
-	var half_w := width * 0.5
-	var half_l := length * 0.5
-	var y := height * 0.5
-	_add_block(Vector3(width + 0.4, height, 0.4), center + Vector3(0, y, -half_l), Vector3(0, 0, 1), _wall_face)
-	if not open_front:
-		_add_block(Vector3(width + 0.4, height, 0.4), center + Vector3(0, y, half_l), Vector3(0, 0, -1), _wall_face)
-	else:
-		# side pillars only
-		_add_block(Vector3(1.2, height, 0.4), center + Vector3(-half_w + 0.6, y, half_l), Vector3(0, 0, -1), _wall_face)
-		_add_block(Vector3(1.2, height, 0.4), center + Vector3(half_w - 0.6, y, half_l), Vector3(0, 0, -1), _wall_face)
-	_add_block(Vector3(0.4, height, length + 0.4), center + Vector3(-half_w, y, 0), Vector3(1, 0, 0), _wall_face)
-	_add_block(Vector3(0.4, height, length + 0.4), center + Vector3(half_w, y, 0), Vector3(-1, 0, 0), _wall_face)
-
-func _doorway(center: Vector3, width: float, height: float) -> void:
-	var post := (4.0 - width) * 0.5
-	_add_block(Vector3(post, height, 0.35), center + Vector3(-(width * 0.5 + post * 0.5), height * 0.5, 0), Vector3(0, 0, 1), _wall_face)
-	_add_block(Vector3(post, height, 0.35), center + Vector3(width * 0.5 + post * 0.5, height * 0.5, 0), Vector3(0, 0, 1), _wall_face)
-	_add_block(Vector3(width + post * 2.0, 0.4, 0.35), center + Vector3(0, height + 0.2, 0), Vector3(0, 0, 1), _edge)
-
-func _fence_line(a: Vector3, b: Vector3, height: float) -> void:
-	var mid := (a + b) * 0.5
-	var len := a.distance_to(b)
-	var dir := (b - a).normalized()
-	var size := Vector3(0.25, height, len)
-	if absf(dir.x) > absf(dir.z):
-		size = Vector3(len, height, 0.25)
-	_add_block(size, mid + Vector3(0, height * 0.5, 0), Vector3(0, 0, 1), _wall_face)
-
-func _crate(pos: Vector3, size: Vector3) -> void:
-	_add_block(size, pos + Vector3(0, size.y * 0.5, 0), Vector3.UP, _wall_face)
-	# corrugated rim
-	_add_block(Vector3(size.x + 0.05, 0.08, size.z + 0.05), pos + Vector3(0, size.y + 0.02, 0), Vector3.UP, _edge)
-
-func _add_sign(pos: Vector3, text: String) -> void:
-	var board := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(maxf(2.5, text.length() * 0.12), 0.5, 0.08)
-	board.mesh = box
-	board.position = pos
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.9, 0.84, 0.7)
-	mat.roughness = 0.95
-	board.set_surface_override_material(0, mat)
-	add_child(board)
-	var label := Label3D.new()
-	label.text = text
-	label.position = pos + Vector3(0, 0, 0.06)
-	label.font_size = 42
-	label.pixel_size = 0.004
-	label.modulate = Color(0.25, 0.16, 0.1)
-	add_child(label)
-
-func _add_block(size: Vector3, position: Vector3, face_normal: Vector3, face: PaperMaterial) -> void:
-	var block := PaperBlock.build(size, face, _edge, face_normal)
-	block.position = position
-	add_child(block)
+	_nav_region.navigation_mesh = _kit.build_nav_mesh()
 
 func _on_hit_registered(_collider: Object, _damage: int, point: Vector3, normal: Vector3) -> void:
 	var impact := _impact_scene.instantiate()

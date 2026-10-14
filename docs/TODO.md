@@ -9,6 +9,7 @@
 - [x] Movement and weapon handling: longer slides, prone, paper guns, iron-sight ADS, visible recoil
 - [x] Slide cancels and cardboard assault rifle
 - [x] Milestone 3: compound level, enemy AI, health/death, checkpoints, objectives, menus, SMG, completion
+- [x] Milestone 3.5: compound layout/playability overhaul + level validator; M3 on `main`
 - [ ] Cardboard pistol and shotgun at the same detail as the rifle
 - [ ] Footstep loops and richer environmental audio
 - [ ] Full navigation bake from level meshes
