@@ -75,4 +75,7 @@ Same FPS controls as before. Keys **1–5** select pistol / AR / shotgun / SMG /
 
 ```bash
 godot --headless --path . -s res://scripts/tools/roguelite_check.gd
+godot --headless --path . -s res://scripts/tools/milestone3_check.gd
 ```
+
+Latest headless run: **CHECK_OK roguelite** and **CHECK_OK milestone3**.
