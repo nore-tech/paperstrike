@@ -64,13 +64,14 @@ static func shop_stock(rng: RandomNumberGenerator, luck: float) -> Array:
 	items.append({"kind": "heal", "label": "Medkit (+50 HP)", "price": 28, "value": 50})
 	items.append({"kind": "armor", "label": "Cardboard Vest (+20)", "price": 32, "value": 20})
 	items.append({"kind": "ammo", "label": "Ammo Crate", "price": 18, "value": 1})
-	var path := [
+	var weapon_paths: Array[String] = [
 		"res://resources/weapons/rifle.tres",
 		"res://resources/weapons/smg.tres",
 		"res://resources/weapons/shotgun.tres",
 		"res://resources/weapons/marksman.tres",
-	][rng.randi_range(0, 3)]
-	var rarity := WeaponRarity.roll(rng, luck)
+	]
+	var path: String = weapon_paths[rng.randi_range(0, 3)]
+	var rarity: int = WeaponRarity.roll(rng, luck)
 	items.append({
 		"kind": "weapon",
 		"label": "%s %s" % [WeaponRarity.name_of(rarity), path.get_file().get_basename().capitalize()],

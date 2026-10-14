@@ -117,11 +117,15 @@ func _refresh() -> void:
 	list.add_child(header)
 	for id in PermanentUpgrades.DEFS.keys():
 		var def: Dictionary = PermanentUpgrades.DEFS[id]
-		var level := profile.level_of(id)
+		var level: int = int(profile.level_of(id))
 		var row := HBoxContainer.new()
 		var info := Label.new()
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var cost_txt := "MAX" if PermanentUpgrades.at_cap(id, level) else str(PermanentUpgrades.cost(id, level))
+		var cost_txt: String
+		if PermanentUpgrades.at_cap(id, level):
+			cost_txt = "MAX"
+		else:
+			cost_txt = str(PermanentUpgrades.cost(id, level))
 		info.text = "%s  Lv %d/%d  —  %s\n%s" % [String(def.name), level, int(def.max), cost_txt, String(def.desc)]
 		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(info)

@@ -42,7 +42,7 @@ func _check_pistol_start() -> bool:
 
 func _check_profile_save() -> bool:
 	var profile: Node = root.get_node("PlayerProfile")
-	var before := profile.scrap
+	var before: int = int(profile.scrap)
 	profile.scrap = before + 17
 	profile.upgrade_levels["max_health"] = 2
 	profile.save_profile()
@@ -102,7 +102,7 @@ func _check_temp_reset() -> bool:
 func _check_currency_separation() -> bool:
 	var profile: Node = root.get_node("PlayerProfile")
 	var run: Node = root.get_node("RunManager")
-	var perm_before := profile.scrap
+	var perm_before: int = int(profile.scrap)
 	run.start_new_run(99)
 	run.add_run_scrap(100)
 	if profile.scrap != perm_before:

@@ -67,8 +67,8 @@ func _rebuild() -> void:
 		btn.custom_minimum_size = Vector2(150, 64)
 		var pos := _node_pos(n)
 		btn.position = pos - Vector2(75, 32)
-		var can := run.can_select_node(id)
-		var done := id in run.completed_nodes
+		var can: bool = bool(run.can_select_node(id))
+		var done: bool = id in run.completed_nodes
 		btn.disabled = not can
 		if done:
 			btn.modulate = Color(0.55, 0.55, 0.55)

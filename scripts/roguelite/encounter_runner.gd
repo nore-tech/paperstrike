@@ -139,11 +139,11 @@ func _update_objective() -> void:
 
 func _spawn_wave(built: Dictionary) -> void:
 	var run := _run()
-	var is_elite := String(_node.type) == "elite"
-	var count := 3 + run.act
+	var is_elite: bool = String(_node.type) == "elite"
+	var count: int = 3 + int(run.act)
 	if is_elite:
 		count += 2
-	var pool := [
+	var pool: Array = [
 		preload("res://resources/ai/standard.tres"),
 		preload("res://resources/ai/light.tres"),
 		preload("res://resources/ai/marksman.tres"),
@@ -158,7 +158,11 @@ func _spawn_wave(built: Dictionary) -> void:
 		var stats: EnemyStats = pool[run.rng.randi_range(0, pool.size() - 1)]
 		if is_elite and i == 0:
 			stats = preload("res://resources/ai/elite.tres")
-		var spawn: Vector3 = spawns[i % spawns.size()] if spawns.size() > 0 else Vector3(0, 0, -4)
+		var spawn: Vector3
+		if spawns.size() > 0:
+			spawn = spawns[i % spawns.size()]
+		else:
+			spawn = Vector3(0, 0, -4)
 		_spawn_enemy(stats, spawn, covers)
 
 func _spawn_boss(built: Dictionary) -> void:
@@ -213,10 +217,10 @@ func _on_enemy_died(was_boss: bool) -> void:
 			run.bosses_killed += 1
 		# On-kill temp upgrades
 		if _player != null and is_instance_valid(_player):
-			var heal := 3 * run.stacked("vamp")
+			var heal: int = 3 * int(run.stacked("vamp"))
 			if heal > 0 and _player.has_method("heal"):
 				_player.heal(heal)
-			var armor_gain := 2 * run.stacked("armor_kill")
+			var armor_gain: int = 2 * int(run.stacked("armor_kill"))
 			if armor_gain > 0 and _player.has_method("add_armor"):
 				_player.add_armor(armor_gain)
 	if was_boss and _boss_bar != null:
@@ -254,8 +258,8 @@ func _do_event() -> void:
 	var run := _run()
 	if run == null:
 		return
-	var roll := run.rng.randf()
-	var msg := ""
+	var roll: float = float(run.rng.randf())
+	var msg: String = ""
 	if roll < 0.34:
 		run.add_run_scrap(40)
 		msg = "Strange Parcel: found a scrap stash (+40)."
@@ -386,7 +390,7 @@ func _after_reward(after_boss: bool) -> void:
 	if after_boss:
 		var run := _run()
 		run.complete_current_node()
-		var next := run.advance_act_or_finish()
+		var next: String = String(run.advance_act_or_finish())
 		if next == "finish":
 			_end_run(false, true)
 			return
