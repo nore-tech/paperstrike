@@ -96,16 +96,17 @@ func _refresh() -> void:
 	var profile := _profile()
 	if profile == null:
 		return
-	var scrap: Label = get_node_or_null("ScrapLabel")
+	var scrap: Label = find_child("ScrapLabel", true, false) as Label
 	if scrap:
 		scrap.text = "Permanent Scrap: %d" % profile.scrap
-	var stats: Label = get_node_or_null("StatsLabel")
+	var stats: Label = find_child("StatsLabel", true, false) as Label
 	if stats:
 		stats.text = "Runs %d  |  Kills %d  |  Bosses %d\nDeaths %d  |  Highest act %d\nLifetime damage %d" % [
 			profile.runs_completed, profile.enemies_killed, profile.bosses_defeated,
 			profile.deaths, profile.highest_act, profile.lifetime_damage
 		]
-	var list: VBoxContainer = get_node_or_null("UpgradeList")
+	# UpgradeList lives under a ScrollContainer — use find_child, not get_node.
+	var list: VBoxContainer = find_child("UpgradeList", true, false) as VBoxContainer
 	if list == null:
 		return
 	for c in list.get_children():
@@ -153,7 +154,7 @@ func _on_range() -> void:
 		session.go_firing_range()
 
 func _on_settings() -> void:
-	var p: Control = get_node_or_null("SettingsPanel")
+	var p: Control = find_child("SettingsPanel", true, false) as Control
 	if p:
 		p.visible = not p.visible
 
