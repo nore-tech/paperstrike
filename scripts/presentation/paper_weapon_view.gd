@@ -22,6 +22,8 @@ static func build(view: Node3D, stats: WeaponStats) -> void:
 			_rifle(art, body, dark, mag, sight)
 		WeaponStats.Form.SHOTGUN:
 			_shotgun(art, body, dark, mag, sight)
+		WeaponStats.Form.MARKSMAN:
+			_marksman(art, body, dark, mag, sight)
 		_:
 			_pistol(art, body, dark, mag, sight)
 
@@ -97,6 +99,19 @@ static func _rifle(_art: Node3D, _body: Color, _dark: Color, _mag: Color, _sight
 	_marker(_art, "RearSight", Vector3(0, 0.055, 0.1))
 	_marker(_art, "FrontSight", Vector3(0, 0.055, -0.38))
 	_marker(_art, "MuzzlePoint", Vector3(0, 0.012, -0.49))
+
+static func _marksman(art: Node3D, body: Color, dark: Color, mag: Color, sight: Color) -> void:
+	# Longer cardboard DMR silhouette vs assault rifle.
+	_rifle(art, body.darkened(0.08), dark, mag, sight)
+	_slab(art, Vector3(0, 0.07, -0.12), Vector3(0.04, 0.035, 0.14), body.lightened(0.1), dark)
+	_slab(art, Vector3(0, 0.07, -0.12), Vector3(0.028, 0.028, 0.12), Color(0.12, 0.1, 0.08), sight)
+	_slab(art, Vector3(0, 0.012, -0.55), Vector3(0.014, 0.014, 0.18), dark, dark.darkened(0.1))
+	var front := art.get_node_or_null("FrontSight") as Node3D
+	var muzzle := art.get_node_or_null("MuzzlePoint") as Node3D
+	if front != null:
+		front.position = Vector3(0, 0.055, -0.52)
+	if muzzle != null:
+		muzzle.position = Vector3(0, 0.012, -0.64)
 
 static func _shotgun(art: Node3D, body: Color, dark: Color, mag: Color, sight: Color) -> void:
 	_slab(art, Vector3(0, 0.0, 0.2), Vector3(0.032, 0.078, 0.2), body.darkened(0.06), dark)

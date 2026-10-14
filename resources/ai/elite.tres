@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ai/enemy_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Elite Folder"
+max_health = 220
+move_speed = 3.4
+chase_speed = 4.8
+damage = 16
+fire_interval = 0.4
+accuracy_degrees = 2.8
+engagement_range = 26.0
+preferred_range = 9.0
+vision_range = 32.0
+vision_fov_degrees = 75.0
+hearing_range = 36.0
+cover_health_threshold = 0.4
+scale = 1.1
+body_color = Color(0.35, 0.42, 0.55, 1)
+trim_color = Color(0.7, 0.55, 0.25, 1)
+aggressive = true

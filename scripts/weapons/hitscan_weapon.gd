@@ -21,6 +21,7 @@ var recoil_pitch := 0.0
 var recoil_yaw := 0.0
 var recoil_hold_pitch := 0.0
 var recoil_hold_yaw := 0.0
+var rarity := 0
 
 var _cooldown := 0.0
 var _reloading := false
@@ -46,6 +47,20 @@ var _mag_rest := Vector3.ZERO
 var _rear_local := Vector3.ZERO
 var _front_local := Vector3.ZERO
 var _muzzle_local := Vector3(0, 0, -0.4)
+var _base_magazine := 0
+var _base_reload := 1.0
+var _base_rps := 4.0
+var _base_recoil_pitch := 1.0
+var _base_recoil_yaw := 0.3
+var _base_hip := 1.0
+var _base_ads := 0.15
+var _runtime_stats: WeaponStats
+var _firerate_mult := 1.0
+var _reload_mult := 1.0
+var _recoil_mult := 1.0
+var _hip_mult := 1.0
+var _ads_mult := 1.0
+var _mag_bonus := 0
 
 func _ready() -> void:
 	_rng.randomize()
@@ -53,9 +68,19 @@ func _ready() -> void:
 		equip(stats)
 
 func equip(next_stats: WeaponStats) -> void:
-	stats = next_stats
-	magazine = stats.magazine_size
-	reserve = stats.starting_reserve
+	stats = next_stats.duplicate(true) if next_stats != null else null
+	_runtime_stats = stats
+	if stats != null:
+		_base_magazine = next_stats.magazine_size
+		_base_reload = next_stats.reload_seconds
+		_base_rps = next_stats.rounds_per_second
+		_base_recoil_pitch = next_stats.recoil_pitch_degrees
+		_base_recoil_yaw = next_stats.recoil_yaw_degrees
+		_base_hip = next_stats.hip_spread_degrees
+		_base_ads = next_stats.ads_spread_degrees
+		_recompute_stats()
+		magazine = stats.magazine_size
+		reserve = next_stats.starting_reserve
 	_cooldown = 0.0
 	_reloading = false
 	_reload_left = 0.0
@@ -72,6 +97,42 @@ func equip(next_stats: WeaponStats) -> void:
 	_sprint_blend = 0.0
 	_rebuild_view()
 	ammo_changed.emit(magazine, reserve)
+
+func set_rarity(tier: int) -> void:
+	rarity = clampi(tier, 0, 4)
+	_recompute_stats()
+
+func apply_run_modifiers(run: Node) -> void:
+	if run == null:
+		return
+	_firerate_mult = float(run.firerate_mult()) if run.has_method("firerate_mult") else 1.0
+	_reload_mult = float(run.reload_mult()) if run.has_method("reload_mult") else 1.0
+	_recoil_mult = float(run.recoil_mult()) if run.has_method("recoil_mult") else 1.0
+	_hip_mult = float(run.hip_spread_mult()) if run.has_method("hip_spread_mult") else 1.0
+	_ads_mult = float(run.ads_spread_mult()) if run.has_method("ads_spread_mult") else 1.0
+	_mag_bonus = int(run.mag_bonus()) if run.has_method("mag_bonus") else 0
+	_recompute_stats()
+
+func clear_run_modifiers() -> void:
+	_firerate_mult = 1.0
+	_reload_mult = 1.0
+	_recoil_mult = 1.0
+	_hip_mult = 1.0
+	_ads_mult = 1.0
+	_mag_bonus = 0
+	_recompute_stats()
+
+func _recompute_stats() -> void:
+	if stats == null:
+		return
+	var mag := _base_magazine + _mag_bonus + WeaponRarity.mag_bonus(rarity)
+	stats.magazine_size = maxi(1, mag)
+	stats.reload_seconds = maxf(0.35, _base_reload * _reload_mult)
+	stats.rounds_per_second = maxf(0.5, _base_rps * _firerate_mult)
+	stats.recoil_pitch_degrees = _base_recoil_pitch * _recoil_mult
+	stats.recoil_yaw_degrees = _base_recoil_yaw * _recoil_mult
+	stats.hip_spread_degrees = maxf(0.05, _base_hip * _hip_mult * WeaponRarity.accuracy_mult(rarity))
+	stats.ads_spread_degrees = maxf(0.02, _base_ads * _ads_mult * WeaponRarity.accuracy_mult(rarity))
 
 func set_handling(scale: float) -> void:
 	_handling_scale = scale
@@ -154,6 +215,7 @@ func _fire(origin: Vector3, direction: Vector3, exclude: Array[RID]) -> void:
 	var space := get_world_3d().direct_space_state
 	if space == null:
 		return
+	var run := get_node_or_null("/root/RunManager")
 	var pellets := maxi(1, stats.pellet_count)
 	for _pellet in pellets:
 		var shot_dir := _spread_direction(aim)
@@ -163,9 +225,37 @@ func _fire(origin: Vector3, direction: Vector3, exclude: Array[RID]) -> void:
 		if result.is_empty():
 			continue
 		var collider: Object = result.collider
-		hit_registered.emit(collider, stats.damage, result.position, result.normal)
+		var hit_pos: Vector3 = result.position
+		var is_head := _is_headshot(collider, hit_pos)
+		var shot := CombatMath.compute_shot(stats.damage, rarity, run, is_head, _rng)
+		var dmg: int = int(shot.damage)
+		hit_registered.emit(collider, dmg, hit_pos, result.normal)
+		var killed := false
 		if collider.has_method("take_damage"):
-			collider.take_damage(stats.damage, result.position)
+			var before := 0
+			if "health" in collider:
+				before = int(collider.health)
+			collider.take_damage(dmg, hit_pos)
+			if "health" in collider and before > 0 and int(collider.health) <= 0:
+				killed = true
+		var kind: int = int(shot.kind)
+		if killed:
+			kind = DamageNumbers.Kind.KILL
+		DamageNumbers.spawn(self, hit_pos + Vector3(0, 0.35, 0), dmg, kind)
+		if run != null and run.get("active") == true:
+			run.damage_dealt += dmg
+
+func _is_headshot(collider: Object, hit_pos: Vector3) -> bool:
+	if collider == null or not (collider is Node):
+		return false
+	var node := collider as Node
+	var head := node.get_node_or_null("Art/Head")
+	if head is Node3D:
+		var scale := 1.0
+		if "stats" in collider and collider.stats != null and "scale" in collider.stats:
+			scale = float(collider.stats.scale)
+		return hit_pos.distance_to((head as Node3D).global_position) < 0.35 * scale
+	return false
 
 func _spread_direction(aim: Vector3) -> Vector3:
 	var degrees := lerpf(stats.hip_spread_degrees, stats.ads_spread_degrees, _ads)

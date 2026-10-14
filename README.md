@@ -1,44 +1,30 @@
 # Paperstrike
 
-A single-player first-person shooter with a handcrafted cardboard / papercraft look. Combat, movement, AI, and levels are fully 3D.
+Single-player cardboard FPS with a roguelite run loop. Godot **4.4**.
 
-## Play
+## Run
 
-1. Install [Godot 4.4](https://godotengine.org/download).
-2. Open this folder (`project.godot`).
-3. Press Play. You start at the main menu.
+Open the project in Godot 4.4+, or:
 
-**PLAY** launches **The Cardboard Compound**.  
-**FIRING RANGE** opens the training room.  
-**Esc** pauses in-game.
+```bash
+godot --path .
+```
 
-### Controls
+Main menu → **Enter Safehouse** for the roguelite loop, **Cardboard Compound** for the campaign setpiece, or **Firing Range** to test weapons.
 
-| Input | Action |
-| --- | --- |
-| WASD | Move |
-| Shift | Sprint |
-| Ctrl | Crouch / slide (from sprint) |
-| Space | Jump (cancels slide) |
-| Z | Prone |
-| Mouse | Look |
-| LMB / RMB | Fire / ADS |
-| R | Reload |
-| E | Interact |
-| 1–4 | Pistol / Rifle / Shotgun / SMG |
-| Esc | Pause |
+## Roguelite loop
+
+Safehouse → permanent upgrades → start run (pistol only) → branching act map → combat / elite / supply / shop / event → rewards → boss → next act or victory. Death awards permanent scrap and returns to the hub.
+
+## Headless checks
+
+```bash
+godot --headless --path . -s res://scripts/tools/roguelite_check.gd
+godot --headless --path . -s res://scripts/tools/milestone3_check.gd
+```
 
 ## Docs
 
-- [Project context](docs/PROJECT_CONTEXT.md)
-- [Current state](docs/CURRENT_STATE.md)
-- [Milestone 3 plan](docs/MILESTONE_3_PLAN.md)
-- [Milestone 3 progress](docs/MILESTONE_3_PROGRESS.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Game design](docs/GAME_DESIGN.md)
-
-## Headless check
-
-```bash
-godot --headless --path . -s res://scripts/tools/milestone3_check.gd
-```
+- `docs/PROJECT_CONTEXT.md` — current build overview
+- `docs/ROGUELITE_IMPLEMENTATION.md` — Milestone 4 tracker
+- `docs/GAME_DESIGN.md` — design notes

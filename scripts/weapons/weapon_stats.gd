@@ -4,7 +4,7 @@ extends Resource
 ## Data for one hitscan firearm. Gameplay code reads this instead of hardcoding a gun.
 
 enum FireMode { SEMI, AUTO }
-enum Form { PISTOL, RIFLE, SHOTGUN }
+enum Form { PISTOL, RIFLE, SHOTGUN, MARKSMAN }
 
 @export var display_name: String = "Pistol"
 @export var form: Form = Form.PISTOL

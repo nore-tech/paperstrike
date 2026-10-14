@@ -9,9 +9,11 @@ const PISTOL := preload("res://resources/weapons/pistol.tres")
 const RIFLE := preload("res://resources/weapons/rifle.tres")
 const SHOTGUN := preload("res://resources/weapons/shotgun.tres")
 const SMG := preload("res://resources/weapons/smg.tres")
+const MARKSMAN := preload("res://resources/weapons/marksman.tres")
 const _DEFAULT_PROFILE := preload("res://resources/player/movement_profile.tres")
 
 signal health_changed(current: int, maximum: int)
+signal armor_changed(current: int)
 signal damaged(amount: int, from: Vector3)
 signal died
 signal respawned
@@ -25,7 +27,11 @@ signal respawned
 
 var move_state: MoveState = MoveState.IDLE
 var health := 100
+var armor := 0
 var is_dead := false
+var _run_mode := false
+var _move_mult := 1.0
+var _weapon_rarity: Dictionary = {}
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _hip_fov := 75.0
@@ -85,10 +91,12 @@ func _ready() -> void:
 	_hurt_audio.volume_db = -8.0
 	add_child(_hurt_audio)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	give_weapon(PISTOL)
+	if not _run_mode:
+		give_weapon(PISTOL)
 	if not _weapon.fired.is_connected(_on_weapon_fired):
 		_weapon.fired.connect(_on_weapon_fired)
 	health_changed.emit(health, max_health)
+	armor_changed.emit(armor)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_dead:
@@ -122,6 +130,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		select_weapon(SHOTGUN)
 	elif event.is_action_pressed("weapon_smg"):
 		select_weapon(SMG)
+	elif event.is_action_pressed("weapon_marksman"):
+		select_weapon(MARKSMAN)
 	elif event.is_action_pressed("reload"):
 		_weapon.start_reload()
 	elif event.is_action_pressed("interact"):
@@ -155,7 +165,7 @@ func _physics_process(delta: float) -> void:
 		_apply_slide(delta, wish)
 	elif not jumped_from_slide:
 		var low := (crouch_held and not _suppress_crouch) or _stance > 0.55
-		_apply_horizontal(delta, wish, _target_speed(wish, sprint_held, low))
+		_apply_horizontal(delta, wish, _target_speed(wish, sprint_held, low) * _move_mult)
 	_apply_vertical(delta)
 	_update_stance(delta, crouch_held)
 	_apply_capsule()
@@ -199,19 +209,26 @@ func state_name() -> String:
 func owns_weapon(stats: WeaponStats) -> bool:
 	return stats != null and stats.resource_path in _owned
 
-func give_weapon(stats: WeaponStats) -> void:
+func give_weapon(stats: WeaponStats, rarity: int = 0) -> void:
 	if stats == null:
 		return
 	var key := stats.resource_path
+	_weapon_rarity[key] = maxi(int(_weapon_rarity.get(key, 0)), rarity)
 	if key in _owned:
 		if _weapon.stats != null and _weapon.stats.resource_path == key:
 			_weapon.restock()
+			_weapon.set_rarity(_weapon_rarity[key])
 		else:
 			_saved_ammo[key] = {"mag": stats.magazine_size, "reserve": stats.starting_reserve}
 		return
 	_owned.append(key)
 	_loadout[key] = stats
 	select_weapon(stats)
+
+func give_weapon_path(path: String, rarity: int = 0) -> void:
+	var stats := load(path) as WeaponStats
+	if stats != null:
+		give_weapon(stats, rarity)
 
 func select_weapon(stats: WeaponStats) -> void:
 	if not owns_weapon(stats):
@@ -222,11 +239,51 @@ func select_weapon(stats: WeaponStats) -> void:
 	if _weapon.stats != null:
 		_saved_ammo[_weapon.stats.resource_path] = {"mag": _weapon.magazine, "reserve": _weapon.reserve}
 	_weapon.equip(stats)
+	_weapon.set_rarity(int(_weapon_rarity.get(key, 0)))
+	_apply_weapon_runtime_mods()
 	_sync_recoil_baseline()
 	if _saved_ammo.has(key):
 		_weapon.magazine = int(_saved_ammo[key].mag)
 		_weapon.reserve = int(_saved_ammo[key].reserve)
 		_weapon.ammo_changed.emit(_weapon.magazine, _weapon.reserve)
+
+func apply_run_state(run: Node) -> void:
+	_run_mode = true
+	_owned.clear()
+	_loadout.clear()
+	_saved_ammo.clear()
+	_weapon_rarity.clear()
+	max_health = int(run.max_health)
+	health = int(run.health)
+	armor = int(run.armor)
+	_move_mult = float(run.move_mult()) if run.has_method("move_mult") else 1.0
+	for w in run.owned_weapons:
+		var stats := load(String(w.path)) as WeaponStats
+		if stats != null:
+			give_weapon(stats, int(w.rarity))
+	if _owned.is_empty():
+		give_weapon(PISTOL, 0)
+	health_changed.emit(health, max_health)
+	armor_changed.emit(armor)
+	_apply_weapon_runtime_mods()
+
+func sync_to_run(run: Node) -> void:
+	run.health = health
+	run.max_health = max_health
+	run.armor = armor
+
+func add_armor(amount: int) -> void:
+	armor = mini(50, armor + maxi(0, amount))
+	armor_changed.emit(armor)
+
+func _apply_weapon_runtime_mods() -> void:
+	var run := get_node_or_null("/root/RunManager")
+	if _weapon == null:
+		return
+	if run != null and run.get("active") == true:
+		_weapon.apply_run_modifiers(run)
+	else:
+		_weapon.clear_run_modifiers()
 
 func restock_equipped() -> void:
 	_weapon.restock()
@@ -243,7 +300,12 @@ func set_health(value: int) -> void:
 func take_damage(amount: int, from: Vector3 = Vector3.ZERO) -> void:
 	if is_dead or amount <= 0:
 		return
-	set_health(health - amount)
+	var result := CombatMath.apply_armor(amount, armor)
+	armor = int(result.armor_left)
+	armor_changed.emit(armor)
+	var hp_dmg: int = int(result.hp_damage)
+	if hp_dmg > 0:
+		set_health(health - hp_dmg)
 	damaged.emit(amount, from)
 	_hurt_audio.stream = preload("res://audio/sfx/empty.wav")
 	_hurt_audio.pitch_scale = 0.7
@@ -592,6 +654,7 @@ func _ensure_input_map() -> void:
 	_bind_key("weapon_rifle", KEY_2)
 	_bind_key("weapon_shotgun", KEY_3)
 	_bind_key("weapon_smg", KEY_4)
+	_bind_key("weapon_marksman", KEY_5)
 	_bind_mouse("fire", MOUSE_BUTTON_LEFT)
 	_bind_mouse("aim", MOUSE_BUTTON_RIGHT)
 

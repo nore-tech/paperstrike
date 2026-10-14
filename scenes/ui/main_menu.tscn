@@ -75,7 +75,12 @@ theme_override_constants/separation = 12
 [node name="Play" type="Button" parent="Buttons"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
-text = "PLAY"
+text = "ENTER SAFEHOUSE"
+
+[node name="Campaign" type="Button" parent="Buttons"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+text = "CARDBOARD COMPOUND"
 
 [node name="Range" type="Button" parent="Buttons"]
 layout_mode = 2
@@ -131,6 +136,7 @@ step = 0.05
 value = 1.0
 
 [connection signal="pressed" from="Buttons/Play" to="." method="_on_play"]
+[connection signal="pressed" from="Buttons/Campaign" to="." method="_on_campaign"]
 [connection signal="pressed" from="Buttons/Range" to="." method="_on_range"]
 [connection signal="pressed" from="Buttons/Settings" to="." method="_on_settings"]
 [connection signal="pressed" from="Buttons/Quit" to="." method="_on_quit"]

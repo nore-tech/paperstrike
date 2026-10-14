@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ai/enemy_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Cardboard Commander"
+max_health = 520
+move_speed = 2.8
+chase_speed = 4.0
+damage = 18
+fire_interval = 0.42
+accuracy_degrees = 3.0
+engagement_range = 30.0
+preferred_range = 8.0
+vision_range = 40.0
+vision_fov_degrees = 90.0
+hearing_range = 45.0
+cover_health_threshold = 0.2
+scale = 1.45
+body_color = Color(0.62, 0.28, 0.22, 1)
+trim_color = Color(0.2, 0.12, 0.08, 1)
+aggressive = true

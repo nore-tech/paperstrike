@@ -14,6 +14,8 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameSession="*res://scripts/autoload/game_session.gd"
+PlayerProfile="*res://scripts/autoload/player_profile.gd"
+RunManager="*res://scripts/autoload/run_manager.gd"
 
 [display]
 

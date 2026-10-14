@@ -8,6 +8,10 @@ signal settings_changed
 const MAIN_MENU := "res://scenes/ui/main_menu.tscn"
 const FIRING_RANGE := "res://scenes/levels/test_room.tscn"
 const COMPOUND := "res://scenes/levels/cardboard_compound.tscn"
+const HUB := "res://scenes/ui/hub.tscn"
+const LEVEL_MAP := "res://scenes/ui/level_map.tscn"
+const ENCOUNTER := "res://scenes/levels/encounter.tscn"
+const RUN_SUMMARY := "res://scenes/ui/run_summary.tscn"
 
 var mouse_sensitivity_scale := 1.0
 var master_volume_db := 0.0
@@ -92,6 +96,32 @@ func go_compound() -> void:
 	start_run_stats()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	get_tree().change_scene_to_file(COMPOUND)
+
+func go_hub() -> void:
+	set_paused(false)
+	allow_pause = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(HUB)
+
+func go_level_map() -> void:
+	set_paused(false)
+	allow_pause = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(LEVEL_MAP)
+
+func go_encounter() -> void:
+	set_paused(false)
+	allow_pause = true
+	start_run_stats()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	get_tree().change_scene_to_file(ENCOUNTER)
+
+func go_run_summary(summary: Dictionary = {}) -> void:
+	set_paused(false)
+	allow_pause = false
+	set_meta("last_run_summary", summary)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(RUN_SUMMARY)
 
 func toggle_pause() -> void:
 	set_paused(not is_paused)

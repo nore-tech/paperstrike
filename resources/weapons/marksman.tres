@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="WeaponStats" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon_stats.gd" id="1"]
+[ext_resource type="AudioStream" path="res://audio/sfx/rifle_fire.wav" id="2"]
+[ext_resource type="AudioStream" path="res://audio/sfx/reload.wav" id="3"]
+[ext_resource type="AudioStream" path="res://audio/sfx/empty.wav" id="4"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Marksman Rifle"
+form = 3
+damage = 42
+range_meters = 55.0
+rounds_per_second = 2.4
+fire_mode = 0
+magazine_size = 8
+starting_reserve = 40
+reload_seconds = 2.1
+recoil_pitch_degrees = 2.4
+recoil_yaw_degrees = 0.35
+recoil_recovery = 7.0
+camera_recover = 0.35
+visual_kick = 0.07
+visual_pitch_degrees = 10.0
+visual_yaw_degrees = 1.0
+visual_recovery = 8.0
+ads_recoil_scale = 0.4
+hip_spread_degrees = 2.2
+ads_spread_degrees = 0.08
+pellet_count = 1
+ads_fov = 42.0
+ads_time = 0.22
+ads_eye_distance = 0.24
+hip_position = Vector3(0.22, -0.2, -0.4)
+hip_rotation_degrees = Vector3(2.0, -5.0, 4.0)
+sway_amount = 0.01
+bob_amount = 0.01
+view_color = Color(0.48, 0.36, 0.24, 1)
+fire_sound = ExtResource("2")
+reload_sound = ExtResource("3")
+empty_sound = ExtResource("4")
+fire_volume_db = -5.0

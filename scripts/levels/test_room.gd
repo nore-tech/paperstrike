@@ -33,6 +33,13 @@ func _ready() -> void:
 	if hud != null and weapon != null:
 		hud.bind(weapon)
 	var player := get_node_or_null("Player")
+	if player != null and player.has_method("give_weapon"):
+		# Range sandbox: unlock all guns for weapon testing (no meta progress).
+		player.give_weapon(preload("res://resources/weapons/pistol.tres"))
+		player.give_weapon(preload("res://resources/weapons/rifle.tres"))
+		player.give_weapon(preload("res://resources/weapons/shotgun.tres"))
+		player.give_weapon(preload("res://resources/weapons/smg.tres"))
+		player.give_weapon(preload("res://resources/weapons/marksman.tres"))
 	var health_hud := get_node_or_null("HealthHud")
 	if health_hud != null and health_hud.has_method("bind") and player != null:
 		health_hud.bind(player)

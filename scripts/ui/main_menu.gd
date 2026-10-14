@@ -10,6 +10,14 @@ func _ready() -> void:
 func _on_play() -> void:
 	var session := get_node_or_null("/root/GameSession")
 	if session != null:
+		if session.has_method("go_hub"):
+			session.go_hub()
+		else:
+			session.go_compound()
+
+func _on_campaign() -> void:
+	var session := get_node_or_null("/root/GameSession")
+	if session != null:
 		session.go_compound()
 
 func _on_range() -> void:
